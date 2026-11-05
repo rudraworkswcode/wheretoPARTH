@@ -1,0 +1,8 @@
+{
+  "latitude_variance": 0.00005,
+  "longitude_variance": 0.00005,
+  "drift_bias_lat": 0.00001,
+  "drift_bias_lon": -0.00001,
+  "dropout_percentage": 0.02,
+  "average_dropout_duration": 2
+}
