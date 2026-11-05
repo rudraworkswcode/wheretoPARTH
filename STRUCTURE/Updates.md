@@ -1,223 +1,167 @@
-Repository: https://github.com/rudraworkswcode/wheretoPARTH
-Purpose: Record the requested corrections after reviewing the current backend and frontend implementation.
+Updates.md — Introduction & Navigation Transition Animations
+Project: where to PARTH
+Scope: Frontend experience and page-to-page transitions only
+Status: Implementation specification — do not change components.md as part of this task.
+1. Objective
+Improve the website's introduction and route-to-map transitions so that the experience feels continuous, cinematic and intentional without making the animations look mechanically choreographed.
 
-This is a change specification, not a new architecture decision. The transport mechanism, map provider, route tie-breaker and intro timing remain TBD unless explicitly stated below.
-1. Spatial positioning — reduce GPS scatter
-Affected files: main.py, noise_config.json, frontend/src/utils/geoUtils.js, frontend/src/components/RouteSelectionPage.jsx.
-Current finding
-The Python backend and frontend utility calculate coordinate standard deviation with the square root of the configured variance. The current variance is 0.00005 for latitude and longitude, so the resulting standard deviation is approximately 0.00707°.
-
-At Bengaluru's approximate latitude (12.9° N), this corresponds to roughly 786 metres north/south and 767 metres east/west per standard deviation. This is far too large for a trace intended to remain close to a designated highway. The frontend route screen also exposes a noise slider that permits large values.
-Required update
-- Define the noise effect in physically meaningful units, preferably metres, rather than unexplained degree values.
-- Keep generated points within a realistic, configurable corridor around the reference route.
-- Apply latitude-aware coordinate conversion when noise is represented in metres.
-- Keep the noise model consistent between Python and JavaScript.
-- Preserve visible positioning error; do not make noisy points identical to the reference route.
-- Remove user-facing noise sliders and configuration controls. Navigation users must not tune the noise model.
-Acceptance criteria
-- Noisy points remain close to the designated road corridor.
-- The trace does not routinely jump hundreds of metres away from the highway.
-- Backend and frontend noise behaviour use consistent units and parameters.
-- Original and noisy positions remain distinguishable.
-- Noise configuration is not exposed on the route-selection screen.
-2. Temporal positioning — generate coordinates progressively
-Affected files: main.py, frontend/src/utils/geoUtils.js, frontend/src/components/NavigationDashboard.jsx.
-Current finding
-GET /api/simulate/{route_id} currently loads the route, generates the complete noisy trace, sends the full trace to OSRM, and returns the trace and matching result together. The frontend also generates or fetches the complete trace when the navigation dashboard mounts, then advances an index through the prepared route. This is full-trace preparation followed by playback, not dynamic coordinate generation ahead of the active vehicle position.
-Required update
-- Generate and make position updates available progressively as navigation advances.
-- Maintain only a limited look-ahead of upcoming coordinates ahead of the active vehicle position.
-- Append or request new points as the vehicle approaches the end of the available look-ahead.
-- Do not calculate and expose the entire future noisy trajectory before navigation starts.
-- Keep active vehicle position, noisy observations and matched road position temporally aligned.
-- Do not display the complete future noisy trace as already observed telemetry.
-Implementation choice left open: The delivery mechanism (such as polling or a streaming connection) is not selected here. Follow the team's approved architecture; do not introduce a protocol without approval.
-Acceptance criteria
-- Navigation starts with the initial position and only the agreed look-ahead data available.
-- New coordinates become available as navigation progresses.
-- The displayed noisy trace grows progressively.
-- The active marker never advances beyond available coordinates.
-- Delayed or failed updates do not cause the vehicle to teleport to the destination.
-3. Velocity and navigation terminology
-Affected files: frontend/src/components/NavigationDashboard.jsx, SimulationControls.jsx, TelemetryHUD.jsx, RouteSelectionPage.jsx, AdvanceAlertBanner.jsx.
-Current finding
-NavigationDashboard.jsx currently starts with isPlaying = true and playbackSpeed = 2. The update interval is Math.max(50, Math.round(500 / playbackSpeed)), so at the default 2x setting a route index advances every 250 ms.
-
-The displayed speed is separately calculated from a fixed 58 km/h baseline with a sine adjustment, or 32 km/h near a turn. It is not derived from actual coordinate displacement and elapsed time. The controls expose 1x, 2x, 5x and 10x playback speeds.
-Required update
-- Slow the vehicle's displayed and actual traversal to a realistic navigation pace.
-- Derive displayed velocity from coordinate displacement and elapsed time, or from a consistent route-time model.
-- Do not use an arbitrary fixed timer per vertex as a substitute for physical movement speed when coordinate spacing varies.
-- Remove all user-facing playback-speed controls.
-- Replace user-facing uses of Simulation, Telemetry Rerun, and similar playback terminology with Navigation and appropriate navigation wording.
-- Use Start Navigation for the manual cockpit start action.
-- Internal function or endpoint names need not be renamed solely to change UI wording.
-Acceptance criteria
-- Vehicle movement is not unrealistically fast.
-- Displayed speed corresponds to the actual movement model.
-- Navigation pace remains consistent across routes with different coordinate spacing.
-- No 1x / 2x / 5x / 10x controls are visible.
-- User-facing copy consistently describes navigation, not a playback demo.
-4. Map colour scheme
-Affected files: frontend/src/components/LeafletMap.jsx, frontend/src/index.css.
-Current finding
-The map currently uses CARTO Voyager tiles. Its overlays include cyan for the reference route, neon orange for the noisy trace, red for the matched route, green for the start marker, and other bright accent colours. A dark page background does not make the Voyager map itself a dark F1-style map.
-Required update
-Apply the agreed palette consistently:
-Colour	Hex	Intended use
-Red	#FF0000	Primary active route / key navigation emphasis
-Neon Orange	#FF5F1F	Secondary trace / upcoming manoeuvre emphasis
-White	#FFFFFF	Labels, text and high-contrast details
-Black	#000000	Map/background base and dark surfaces
+Implement the following user journey in this exact order:
+1. Welcome screen
+2. Pixel diffusion into a particle field
+3. Particle field forms a globe, then splits apart
+4. Mission brief screen
+5. Start and destination entry
+6. Parallel F1 traffic transition
+7. Navigation map / cockpit
+Do not redesign the navigation map, change the route-selection inputs, or modify the backend as part of this UI task.
+2. Current repository findings
+The implementation must account for the current code rather than assume the flow already exists.
+Current file	Finding	Required action
+frontend/src/App.jsx	Currently renders welcome, routes, and cockpit. It does not mount BriefPage.	Add explicit page/transition states so the required sequence is possible.
+frontend/src/components/WelcomePage.jsx	Contains the welcome title, approved mission copy, crossing F1 cars, a proceed button and a 5.5-second automatic progression.	Separate the welcome greeting from the later brief stage, trigger the particle/globe transition, and make manual/automatic progression use the same sequence.
+frontend/src/components/BriefPage.jsx	Already exists but is not currently connected by App.jsx.	Reconnect it as the screen shown after the globe animation. Preserve its existing content unless a separate content change is requested.
+frontend/src/components/RouteSelectionPage.jsx	Contains the starting-point and destination dropdowns. Its submit callback currently launches the cockpit directly.	Keep the two inputs and send submission through the new traffic transition before opening the map.
+frontend/src/components/NavigationDashboard.jsx	Hosts the navigation cockpit.	Keep this as the destination screen after the traffic transition. Do not start or reset navigation merely because the transition component mounted.
+frontend/src/index.css	Contains the existing diagonal F1 animation keyframes and transition styles.	Correct the crossing trajectories and add styling only where needed for the two new transitions.
+components.md	Existing component guide at the repository root. The filename is lowercase.	Update later with the new components and their file locations; do not edit it in this task.
 
 
-- Select or style map tiles so the map reads as a dark navigation surface.
-- Remove unrelated cyan/green/yellow styling where decorative and inconsistent with the agreed palette.
-- Keep route, vehicle, start, destination and alert markers legible.
-- Do not add overlays or panels to occupy space left by removed controls.
-The basemap provider or tile style is TBD; this document does not select one.
-Acceptance criteria
-- Map styling follows red, neon orange, white and black.
-- The route is clearly distinguishable from the map background.
-- Start, destination and active vehicle markers remain readable.
-- The map no longer looks like a light Voyager map placed inside a dark page.
-5. Global header — remove the top-right status element
-Affected file: frontend/src/components/Header.jsx.
-Current finding
-The header renders a right-side status container showing NAVIC LOCK: OK, 8 Sats | HDOP 1.08, and selected route information. The satellite lock and quality values are static display content, not verified live measurements.
-Required update
-- Remove the complete top-right status container.
-- Do not replace it with another status badge, mock telemetry block or decorative panel.
-- Keep remaining brand treatment only where it supports the requested flow.
-- Remove obsolete header navigation entries that allow users to jump separately to Paddock or Mission Brief.
-Acceptance criteria
-- No top-right NavIC lock, satellite count, HDOP or selected-route status block remains.
-- No fabricated live satellite status is displayed.
-- The remaining header does not provide a manual bypass around the automated introduction flow.
-6. Paddock and Mission Brief — consolidate the introduction
-Affected files: frontend/src/App.jsx, WelcomePage.jsx, BriefPage.jsx, Header.jsx.
-Current finding
-Welcome/Paddock and Mission Brief are currently separate pages. The welcome page has an ENTER MISSION BRIEF button. The brief page has a BACK TO PADDOCK action and a route-progression button. The header exposes separate navigation buttons for these pages.
+3. Transition A — Welcome screen to particle diffusion to globe to Brief
+3.1 Intended visual sequence
+After the welcome message has been displayed, the visible welcome screen should appear to break apart into thousands of tiny, circular particles. Those particles should retain the colours of the pixels they came from.
 
-The Welcome page includes three feature cards. The Brief page includes four technical feature modules and an explanatory paragraph about Abhimanyu/Chakravyuh lore.
-Required update
-- Merge Paddock/Welcome and Mission Brief into one introduction page/view.
-- Progression through the merged introduction must be automatic; do not require a click to move between separate Paddock and Mission Brief pages.
-- Automatically progress from the consolidated introduction to route configuration after its approved intro sequence.
-- Remove the three feature cards from the Paddock/Welcome view.
-- Remove the four technical feature modules from the Mission Brief view.
-- Remove the explanatory epic-lore paragraph.
-- Preserve the approved product brief exactly:
-  Every journey deserves the right direction and every turn, the right guidance. Your destination is the goal, we'll help you find the way.
-  Dw, Abhimanyu. This time, we'll get you out.
-- Do not remove or rewrite the approved brief itself.
-- Remove obsolete separate-page back/proceed controls and navigation links that conflict with automatic progression.
-The exact duration or event that ends the intro sequence is TBD. Do not add a new user-facing control to replace the removed buttons.
-Acceptance criteria
-- Paddock and Mission Brief are no longer separate navigable pages.
-- Welcome and approved brief content appear as one consolidated introduction experience.
-- Progression happens automatically.
-- Three welcome feature cards, four brief feature modules and the epic-lore paragraph are absent.
-- The exact approved brief remains visible.
-- No replacement cards or filler content are added.
-7. Route configuration — two dropdowns only
-Affected files: frontend/src/components/RouteSelectionPage.jsx, SimulationControls.jsx, App.jsx, frontend/src/data/routesData.js.
-Current finding
-The route-selection screen contains start/destination filter dropdowns, preconfigured route cards, route preference labels, distance/estimated-time/turn-count statistics, a noise-parameter drawer, and a manual toggle between standalone and local FastAPI modes. The cockpit also contains a separate quick route switcher.
+The sequence is:
+1. Welcome hold: Show the welcome screen and its existing visual identity. The exact welcome text is: Welcome to where to PARTH - Your smarter way to navigate through Life.
+2. Pixel breakup: The visible welcome composition dissolves into tiny circular particles. Particles should be derived from the rendered screen's existing pixels, so a red pixel becomes a red particle, a white pixel becomes a white particle, and so on. Do not generate a new rainbow palette or assign arbitrary colours.
+3. Natural diffusion: The particles burst outward with high diffusion. Their motion should feel organic and physically loose, not like each particle has been assigned a deliberate left or right lane. Some naturally drift left, some right, some upward or downward, with varied speed and slight turbulence. Avoid a uniform radial explosion, synchronized movement, or rigid rows.
+4. Particle settling / globe formation: As the cloud disperses, the same particles reduce into small circular atoms and gradually reorganize into the silhouette of a planet or globe. Preserve each particle's sampled source colour throughout the transformation. The globe may use subtle depth, shading and density to read as spherical, but must not introduce unrelated colours.
+5. Globe separation: Split the globe vertically into two broad halves. The left half travels toward the left edge and the right half travels toward the right edge. Make the separation feel like the particle mass is drifting apart, not like a hard rectangular wipe. A slight stagger between the two halves is acceptable, but both must clearly move outward.
+6. Brief reveal: As the two halves leave the center, reveal the mission brief screen underneath or immediately after them. The Brief screen must appear only after the globe transition reaches its exit point; do not jump directly from the welcome screen to route entry.
+3.2 Colour and particle rules
+- Use the colours sampled from the welcome screen itself. The particle colours must be the colours the original pixels were already holding.
+- Keep the overall palette consistent with the existing site: red #FF0000, neon orange #FF5F1F, white #FFFFFF, black #000000, plus only the colours naturally present in the captured source pixels.
+- Particles must be circular, very small and varied slightly in size. They should read as tiny atoms, not large bubbles, stars, confetti or square pixels.
+- Do not add a decorative rainbow, new neon palette, random coloured sparks, smoke, fire or an unrelated galaxy effect.
+- Keep the screen background consistent with the existing dark design.
+- The globe must be formed from the same particle population and source colours. Do not replace it with a stock planet image or a separately coloured 3D globe.
+3.3 Implementation guidance
+- Create a focused transition component, suggested path: frontend/src/components/ParticleGlobeTransition.jsx.
+- The transition should capture or rasterize the visible welcome composition and sample its pixel colours and positions. DOM elements cannot be read directly as canvas pixels, so choose a reliable DOM-to-raster/canvas approach; add a dependency only if the existing browser APIs and project setup cannot provide a reliable capture.
+- Prefer a canvas-based particle renderer over creating thousands of React DOM nodes. Keep React responsible for the transition lifecycle and page-state callbacks; let the canvas handle per-frame particle motion.
+- Use a seeded or otherwise stable mapping from source particles to globe target positions so the globe forms coherently instead of flickering between unrelated arrangements.
+- Use a diffusion/turbulence force with varied per-particle velocity and damping. A mild left/right drift bias may emerge naturally, but must not turn into two visibly choreographed streams during the diffusion stage.
+- Use requestAnimationFrame or an equivalent animation loop. Cancel the animation frame, clear timers and remove event listeners when the component unmounts or the transition is cancelled.
+- Avoid repeatedly capturing the page or recreating all particles on every React render.
+- Keep the animation responsive: cap particle count according to viewport size/device capability, and avoid blocking scrolling or the main UI longer than necessary.
+- Support prefers-reduced-motion: skip or greatly simplify the visual effect while still advancing to the Brief screen correctly.
+3.4 Welcome progression and safety against duplicate transitions
+- Both the existing automatic progression and any remaining welcome-page proceed action must enter the same transition sequence.
+- Do not allow the automatic timer and a button click to trigger two simultaneous particle animations or mount the Brief screen twice.
+- The transition must call the next-page callback exactly once after completion.
+- Clean up the current 5.5-second timer and any transition timer when the page unmounts. Adjust the welcome hold and animation durations to fit the sequence; do not let the welcome's old timer bypass the particle/globe effect.
+- Do not make the Brief screen appear before the animation completes.
+4. Correct the original diagonal F1 car crossing
+4.1 Required movement
+The two cars must travel across the complete viewport on opposite diagonal paths at approximately the same time:
+- The car starting at the extreme left must travel diagonally all the way to the extreme right.
+- The car starting at the extreme right must travel diagonally all the way to the extreme left.
+Both cars must visibly enter from outside or at the edge of the viewport, cross the screen, and leave fully beyond the opposite edge. Their paths should be clearly diagonal rather than mostly horizontal or vertical.
+4.2 Current issue to correct
+frontend/src/index.css already contains carLeftToRight and carRightToLeft keyframes, but the visual result has not reliably communicated the full opposite-edge crossing. Do not merely rename the keyframes. Inspect the rendered result and correct the element anchor, transform distances, start/end coordinates, clipping and orientation so the actual cars follow the requested paths.
+4.3 Behaviour and visual requirements
+- Keep both cars moving simultaneously, with only a small timing offset if needed to make the crossing readable.
+- The left-origin car travels left-to-right; the right-origin car travels right-to-left. Do not reverse these directions.
+- Align each car's visual facing direction with its direction of travel. In particular, the right-to-left car should not appear to drive backwards just because its container is translating left.
+- Ensure the cars are not clipped by the welcome content container before reaching the viewport edge.
+- Keep the existing F1 car artwork and red/neon-orange/white identity. Do not replace the cars with generic icons.
+- Preserve the text's readability. The cars may pass behind the hero content where necessary, but should remain visible enough to communicate the crossing.
+- Keep the animation responsive to different viewport widths and heights.
+5. Transition B — Route entry to navigation map
+5.1 Intended visual sequence
+After the user selects the starting point and destination and submits the route form, do not open the map immediately. Show a short F1 traffic transition first:
+1. A small group of cars enters from the top of the screen and travels downward.
+2. Another small group enters from the bottom and travels upward.
+3. Cars within each group move in parallel directions, as if travelling in parallel lanes. Keep the formation compact and the cars small relative to the screen.
+4. The two groups pass through the visual field in opposite directions. Use slight per-car timing offsets so it feels alive, but keep the parallel movement legible.
+5. Once the transition completes, reveal the navigation map/cockpit with the selected start and destination unchanged.
+5.2 Visual requirements
+- Use the existing F1 car visual language. Cars can be simplified or scaled down for this transition, but must still read as cars rather than dots or generic arrows.
+- Top-origin traffic moves downward; bottom-origin traffic moves upward. Do not send both groups in the same direction.
+- Keep the animation compact and short. It should bridge the route form and the map, not become a second welcome animation.
+- Maintain parallel spacing within each group. Avoid collisions, overlap that makes the cars unreadable, and erratic random paths.
+- Use the existing red, neon orange, white and black palette.
+- The transition should cover or overlay the route-selection screen cleanly, then clear fully before the map is interacted with.
+5.3 Implementation guidance
+- Create a dedicated component, suggested path: frontend/src/components/TrafficTransition.jsx.
+- Trigger it from the route-selection submit callback in App.jsx (or from a small transition controller owned by App.jsx).
+- Do not change the meaning of the start/destination form or add extra inputs, route cards or settings.
+- Preserve the selected start and destination through the transition. Do not recompute or clear them while the animation is playing.
+- Mount or reveal NavigationDashboard only after the transition completes. Avoid initializing Leaflet multiple times or starting navigation movement just because the transition finished.
+- Guard against repeated submit actions while the animation is active. The next-page callback should run once.
+- Clean up timers, animation frames and listeners on unmount.
+- Support prefers-reduced-motion by shortening or skipping the animation without blocking entry to the map.
+6. Required application flow and state ownership
+Wire the application into this exact sequence:
 
-This makes the interface behave like a route-planning dashboard rather than a minimal navigation setup.
-Required update
-The route-configuration view must accept only these two user inputs:
-1. Starting Point — one dropdown.
-2. Destination — one dropdown.
-Remove:
-- All preconfigured route cards.
-- Route preference cards or labels.
-- Distance, ETA and turn-count statistics on the route-selection view.
-- Noise-parameter sliders and drawers.
-- Manual backend/API mode toggles.
-- Extra route-switching dropdowns in the cockpit.
-- Any route-selection control beyond the two specified dropdowns.
-The selected start/end pair should resolve to applicable route data internally. Do not expose route cards or statistics as a second selection method.
-Route data clarification
-The current route data contains two Kengeri → Kanakapura variants (R-01 and R-05). Because the UI may expose only start and destination, the application needs a deterministic internal rule for resolving that pair. The user must not be asked to choose between faster/slower route cards.
+WelcomePage → ParticleGlobeTransition → BriefPage → RouteSelectionPage → TrafficTransition → NavigationDashboard
 
-The final rule for duplicate start/end pairs is TBD and must be confirmed by the team. Do not invent an additional UI control.
-Preserve empty space
-- Preserve the intended whitespace when cards, statistics, drawers or toggles are removed.
-- Do not fill removed areas with new cards, charts, statistics, illustrations or controls.
-- Keep route configuration deliberately minimal.
-Acceptance criteria
-- Exactly two route-input dropdowns appear: start and destination.
-- The selected pair determines the route internally.
-- No preconfigured route cards or route statistics are displayed.
-- No noise sliders or configuration drawer are displayed.
-- No manual API/standalone toggle is displayed.
-- No extra route switcher appears in the cockpit.
-- Removed sections leave clean whitespace rather than replacement content.
-8. Cockpit — manual start and minimal controls
-Affected files: frontend/src/components/NavigationDashboard.jsx, SimulationControls.jsx, TelemetryHUD.jsx.
-Current finding
-The cockpit starts moving immediately because isPlaying is initially true.
+Implementation responsibilities:
+- App.jsx owns the active page/transition state and selected route/location values.
+- WelcomePage.jsx shows the welcome message and starts the first transition. It must not directly navigate to route entry.
+- ParticleGlobeTransition.jsx runs the pixel diffusion, globe formation and two-half separation, then signals completion.
+- BriefPage.jsx appears after the first transition and proceeds to route selection using its existing navigation callback.
+- RouteSelectionPage.jsx retains the starting-point and destination inputs. Its submit action starts the traffic transition rather than mounting the cockpit immediately.
+- TrafficTransition.jsx plays the top-to-bottom and bottom-to-top car-group movement, then signals completion.
+- NavigationDashboard.jsx is displayed only after the second transition completes.
+Do not put the entire animation system inside App.jsx or overload WelcomePage.jsx with all particle and traffic rendering. Keep transition components isolated, reusable and easy to modify.
+7. Component guide update — later task, not part of this change
+After the UI implementation is complete, update the existing root-level components.md (lowercase filename) with the new component locations and responsibilities. Do not create a competing Components.md file and do not edit the guide during this task.
 
-It also exposes Play/Pause, Step Forward, Reset, playback-speed selectors, Ground Truth/NavIC Noise/Map Matched layer toggles, a route switcher, and a RERUN TELEMETRY button after arrival.
-Required update
-- Entering the cockpit must not start vehicle movement automatically.
-- Show one clear Start Navigation trigger before movement begins.
-- Start advancing the vehicle only after the user activates that trigger.
-- Remove all playback-speed controls.
-- Remove all layer-visibility toggles.
-- Remove the RERUN TELEMETRY button.
-- Remove the cockpit route switcher; route input is handled by the two dropdowns on the previous view.
-- Do not add replacement controls for deleted items.
-- Do not start timers, consume route points, or advance the vehicle before manual start.
-Pause/stop behaviour after navigation begins is not specified here. Do not add new cockpit controls unless the team requests them. The manual-start requirement must be satisfied first.
-Acceptance criteria
-- Opening the cockpit shows the vehicle at its initial position.
-- No route progression occurs before the user selects Start Navigation.
-- Selecting Start Navigation begins navigation.
-- Playback-speed selectors, layer toggles, Rerun Telemetry and the cockpit route switcher are absent.
-9. Related correctness checks
-1. geoUtils.js creates lane-guidance text from turn-angle heuristics. Do not present a guessed lane as verified map-derived lane guidance.
-2. AdvanceAlertBanner.jsx displays a lane recommendation field. Show lane-specific instructions only when map data supports them; otherwise use a road-level manoeuvre instruction.
-3. The telemetry speed display is not tied to actual coordinate displacement and elapsed time. Correct its source before treating it as real vehicle speed.
-4. Remove visible uses of "simulation" where they conflict with the requested navigation experience. Backend endpoint names need not be renamed solely for a UI terminology change.
-10. Implementation order
-1. Correct GPS noise scale and make backend/frontend noise behaviour consistent.
-2. Change coordinate generation/delivery to progressive look-ahead updates.
-3. Align movement timing and displayed velocity.
-4. Consolidate welcome and brief views; remove unauthorised content.
-5. Replace route cards/filters/settings with exactly two dropdowns.
-6. Remove the header status element.
-7. Apply the approved map palette.
-8. Make cockpit entry stopped by default and add a manual Start Navigation trigger.
-9. Remove specified cockpit controls and obsolete terminology.
-10. Run the acceptance checks below.
-This is an implementation checklist, not a new architecture proposal. Confirm unresolved choices with the team before adding new mechanisms.
-11. Final acceptance checklist
-- [ ] Noise remains within a realistic highway corridor.
-- [ ] Backend and frontend noise settings use consistent units and behaviour.
-- [ ] Coordinates are generated progressively ahead of the active vehicle position.
-- [ ] No full future noisy trace is displayed as already observed at navigation start.
-- [ ] Vehicle progression is realistic and speed is calculated consistently.
-- [ ] User-facing terminology says Navigation rather than Simulation/Telemetry Rerun.
-- [ ] Map styling follows red, neon orange, white and black.
-- [ ] Top-right header status container is removed.
-- [ ] Welcome/Paddock and Mission Brief are one consolidated view.
-- [ ] Consolidated introduction progresses automatically.
-- [ ] Three welcome feature cards are removed.
-- [ ] Four brief feature modules are removed.
-- [ ] Epic-lore paragraph is removed.
-- [ ] Approved brief copy is preserved exactly.
-- [ ] Route configuration contains exactly two dropdowns.
-- [ ] Route cards and route statistics are removed.
-- [ ] Noise controls and API mode toggle are removed.
-- [ ] Removed UI areas remain empty; no filler content is added.
-- [ ] Entering the cockpit does not start navigation.
-- [ ] Start Navigation is the manual trigger.
-- [ ] Playback-speed controls are removed.
-- [ ] Layer toggles are removed.
-- [ ] Rerun Telemetry is removed.
-- [ ] Cockpit route switcher is removed.
-- [ ] No lane-specific claim is made without supporting lane map data.
+Add entries for:
+Component	File location	Responsibility to document
+Particle / Globe Transition	frontend/src/components/ParticleGlobeTransition.jsx	Captures the welcome composition's pixel colours, diffuses circular particles, forms a globe, splits the globe into left/right halves and signals when the Brief screen can appear.
+Traffic Transition	frontend/src/components/TrafficTransition.jsx	Animates small F1 car groups from the top and bottom in opposite parallel directions between route entry and the navigation map.
+
+
+Also update the existing entries for:
+- frontend/src/App.jsx — documents the complete page flow and transition-state ownership.
+- frontend/src/components/WelcomePage.jsx — documents the welcome greeting and handoff to the particle/globe sequence.
+- frontend/src/components/BriefPage.jsx — documents its position after the globe transition.
+- frontend/src/components/RouteSelectionPage.jsx — documents that submitting the two locations starts the traffic transition.
+- frontend/src/index.css — documents the revised diagonal F1 keyframes and transition styling.
+8. Acceptance checklist
+Welcome and globe transition
+- [ ] The welcome greeting is shown before the transition begins.
+- [ ] The welcome composition visibly breaks into tiny circular particles.
+- [ ] Particle colours are sampled from the original visible pixels; no arbitrary rainbow palette is introduced.
+- [ ] Diffusion looks organic and high-energy, with particles moving in varied directions rather than in choreographed streams.
+- [ ] Particles reorganize into a recognizable globe while retaining their source colours.
+- [ ] The globe separates into a left half moving left and a right half moving right.
+- [ ] The Brief screen appears only after the globe has moved apart.
+- [ ] Automatic and manual progression cannot start duplicate animations.
+Diagonal F1 cars
+- [ ] The left-origin car finishes beyond the right edge.
+- [ ] The right-origin car finishes beyond the left edge.
+- [ ] Both paths are clearly diagonal and span the viewport.
+- [ ] Each car visually faces the direction in which it travels.
+- [ ] The cars remain legible and do not obscure the welcome copy.
+Route-to-map traffic transition
+- [ ] The start and destination fields remain the only route inputs.
+- [ ] Submitting the route form starts the traffic transition.
+- [ ] The upper group moves downward and the lower group moves upward.
+- [ ] Cars travel in parallel lanes with small timing variation.
+- [ ] The map appears only after the transition completes.
+- [ ] Selected start and destination values are preserved.
+- [ ] No duplicate map initialization or unintended navigation start occurs.
+Quality and compatibility
+- [ ] Animations are responsive to desktop and mobile screen sizes.
+- [ ] Animation loops, timers and event listeners are cleaned up.
+- [ ] Reduced-motion settings do not trap the user or prevent page progression.
+- [ ] No backend, route-generation or map-matching code is changed as part of this task.
+- [ ] Existing visual identity and approved copy are preserved except where the welcome and brief content must be separated into their correct stages.
+9. Out of scope
+- Do not change the OSRM / OpenStreetMap backend, routing pipeline or Kalman filtering.
+- Do not modify route geometry, selected locations or the two-dropdown route-selection requirement.
+- Do not redesign the navigation cockpit or Leaflet map.
+- Do not add unrelated particle colours, extra decorative effects, new cards or filler sections.
+- Do not update components.md yet; document the intended follow-up locations only.

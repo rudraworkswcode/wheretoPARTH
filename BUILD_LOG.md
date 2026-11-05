@@ -173,3 +173,45 @@ All 11 corrective sections specified in STRUCTURE/Updates.md were systematically
   * Modified LeafletMap.jsx: Updated the bottom-left legend label from "Simulated NavIC Noise" to "Noisy GPS Signal".
 - Build Verification:
   * Executed `npm run build`: Production build succeeded in 2.12s with 0 errors.
+
+
+================================================================================
+WHERE TO PARTH — TRANSITIONS & CONTINUOUS JOURNEY AUDIT LOG
+Date: 2026-11-06
+Author: Antigravity AI Assistant
+Problem Statement: Lane-Level Vehicle Navigation Using NavIC Satellite Signals
+================================================================================
+
+[TRANSITION ARCHITECTURE IMPLEMENTATION]
+Systematically integrated the continuous cinematic transition sequence defined in STRUCTURE/Updates.md:
+
+1. Application Flow & State Ownership:
+   - Configured exact sequence in frontend/src/App.jsx:
+     WelcomePage -> ParticleGlobeTransition -> BriefPage -> RouteSelectionPage -> TrafficTransition -> NavigationDashboard
+   - App.jsx retains state ownership for active route, selected start/destination locations, and transition triggers.
+
+2. Transition A: Particle Diffusion & 3D Globe Splitting (frontend/src/components/ParticleGlobeTransition.jsx):
+   - Created dedicated Canvas-driven particle simulation component.
+   - Sampled exact welcome composition color palette (Red #FF0000, Neon Orange #FF5F1F, White #FFFFFF, and dark accents).
+   - Simulates physical breakup and high-energy loose organic diffusion.
+   - Particles organize dynamically into a rotating 3D spherical globe.
+   - Globe splits vertically into left and right hemispheres that drift outward toward viewport edges, seamlessly revealing BriefPage.
+   - Includes support for `prefers-reduced-motion` and complete cleanup of animation frames/resize listeners.
+
+3. Diagonal F1 Cars Correction (frontend/src/components/WelcomePage.jsx & frontend/src/index.css):
+   - Corrected crossing trajectories: left-to-right car starts outside left edge and exits beyond right edge; right-to-left car starts outside right edge and exits beyond left edge.
+   - Right-to-left car is flipped (`scaleX(-1)`) to face forward in its direction of travel.
+   - Both cars travel full diagonal spans across the entire viewport.
+   - Guarded progression against duplicate triggers (timer vs button click).
+
+4. Transition B: Parallel Opposite F1 Traffic (frontend/src/components/TrafficTransition.jsx & frontend/src/index.css):
+   - Created dedicated TrafficTransition component triggered upon route submission.
+   - Top group enters from top of screen and travels downward in parallel lanes.
+   - Bottom group enters from bottom of screen and travels upward in parallel lanes.
+   - Small F1 cars travel with subtle timing offsets without visual collisions.
+   - Seamlessly unmounts and opens NavigationDashboard with route selection preserved.
+
+[BUILD & VERIFICATION]
+- `npm run build --prefix frontend`: Built successfully in 8.26s with zero errors or warnings.
+- Output assets: index-wG2BXIWk.css (5.60 kB), index-Cn5DoEud.js (354.92 kB).
+================================================================================

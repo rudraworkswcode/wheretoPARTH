@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Compass, ShieldAlert, Cpu, Layers, Radio } from 'lucide-react';
+import { ArrowRight, Compass, ShieldAlert, Cpu, Radio } from 'lucide-react';
 
 export default function BriefPage({ onProceed, onBack }) {
   return (
@@ -52,8 +52,7 @@ export default function BriefPage({ onProceed, onBack }) {
       }}>
         <div style={{
           borderLeft: '4px solid var(--parth-red)',
-          paddingLeft: '24px',
-          marginBottom: '20px'
+          paddingLeft: '24px'
         }}>
           {/* Exact PRD Copy Part 1 */}
           <blockquote className="font-rajdhani" style={{
@@ -77,75 +76,6 @@ export default function BriefPage({ onProceed, onBack }) {
             "Dw, Abhimanyu. This time, we'll get you out."
           </div>
         </div>
-
-        <p className="font-inter" style={{
-          fontSize: '14px',
-          color: '#B5BAC7',
-          lineHeight: 1.6,
-          marginTop: '16px',
-          maxWidth: '820px'
-        }}>
-          In epic lore, Abhimanyu penetrated the impenetrable Chakravyuh maze but lacked the exit strategy.
-          Modern drivers face a contemporary Chakravyuh: multipath satellite errors, urban canyon signal drops,
-          and ambiguous road splits leading to missed highway exits. PARTH acts as your modern charioteer—utilizing
-          NavIC satellite constellation positioning, geometric road snapping, and advance turn alerts.
-        </p>
-      </div>
-
-      {/* 4 Technical Focus Areas */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '20px',
-        marginBottom: '40px'
-      }}>
-        <div className="racing-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <Radio size={20} color="var(--parth-neon-orange)" />
-            <h4 className="font-orbitron" style={{ fontSize: '14px', fontWeight: 700 }}>
-              1. NavIC Noise Modelling
-            </h4>
-          </div>
-          <p className="font-rajdhani" style={{ fontSize: '14px', color: '#B0B7C6', lineHeight: 1.4 }}>
-            Simulates Gaussian coordinate jitter (variance 0.00005) and cumulative atmospheric drift across latitude and longitude.
-          </p>
-        </div>
-
-        <div className="racing-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <Cpu size={20} color="var(--parth-red)" />
-            <h4 className="font-orbitron" style={{ fontSize: '14px', fontWeight: 700 }}>
-              2. OSRM Road Snapping
-            </h4>
-          </div>
-          <p className="font-rajdhani" style={{ fontSize: '14px', color: '#B0B7C6', lineHeight: 1.4 }}>
-            Applies Hidden Markov Models & geometric radius matching (50m) to snap noisy satellite coordinates to valid road vectors.
-          </p>
-        </div>
-
-        <div className="racing-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <Compass size={20} color="var(--parth-cyan)" />
-            <h4 className="font-orbitron" style={{ fontSize: '14px', fontWeight: 700 }}>
-              3. 1 km Advance Guidance
-            </h4>
-          </div>
-          <p className="font-rajdhani" style={{ fontSize: '14px', color: '#B0B7C6', lineHeight: 1.4 }}>
-            Monitors real-time distance along the route and fires warnings 1000m prior to junction turns, with lane recommendations.
-          </p>
-        </div>
-
-        <div className="racing-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-            <ShieldAlert size={20} color="var(--parth-green)" />
-            <h4 className="font-orbitron" style={{ fontSize: '14px', fontWeight: 700 }}>
-              4. Dead Reckoning
-            </h4>
-          </div>
-          <p className="font-rajdhani" style={{ fontSize: '14px', color: '#B0B7C6', lineHeight: 1.4 }}>
-            Bridges temporary satellite dropouts using historical speed and heading projection, preventing positioning freezes.
-          </p>
-        </div>
       </div>
 
       {/* Navigation Footer */}
@@ -156,22 +86,23 @@ export default function BriefPage({ onProceed, onBack }) {
         borderTop: '1px solid var(--parth-border)',
         paddingTop: '24px'
       }}>
-        <button
-          onClick={onBack}
-          className="f1-btn-outline"
-        >
-          ← BACK TO PADDOCK
-        </button>
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="f1-btn-outline"
+          >
+            ← BACK
+          </button>
+        ) : <div />}
 
         <button
           onClick={onProceed}
           className="f1-btn-orange"
         >
-          <span>SELECT ROUTE & INITIALIZE</span>
+          <span>PROCEED TO ROUTE SELECTION</span>
           <ArrowRight size={18} />
         </button>
       </div>
     </div>
   );
 }
-

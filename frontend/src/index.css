@@ -26,7 +26,7 @@ body {
   color: var(--parth-white);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
-  background-image: 
+  background-image:
     radial-gradient(circle at 15% 15%, rgba(255, 0, 0, 0.08) 0%, transparent 40%),
     radial-gradient(circle at 85% 85%, rgba(255, 95, 31, 0.08) 0%, transparent 40%),
     linear-gradient(rgba(24, 28, 36, 0.25) 1px, transparent 1px),
@@ -40,13 +40,16 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--parth-black);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--parth-border);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--parth-neon-orange);
 }
@@ -55,9 +58,11 @@ body {
 .font-orbitron {
   font-family: 'Orbitron', monospace;
 }
+
 .font-rajdhani {
   font-family: 'Rajdhani', sans-serif;
 }
+
 .font-inter {
   font-family: 'Inter', sans-serif;
 }
@@ -160,13 +165,11 @@ body {
 
 /* Striped Racing Carbon Accent */
 .racing-stripes {
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 10px,
-    rgba(255, 0, 0, 0.15) 10px,
-    rgba(255, 0, 0, 0.15) 20px
-  );
+  background: repeating-linear-gradient(-45deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 0, 0, 0.15) 10px,
+      rgba(255, 0, 0, 0.15) 20px);
 }
 
 /* F1 Cars Crossing Diagonally Animations for Welcome Page */
@@ -175,12 +178,15 @@ body {
     transform: translate(-120vw, 40vh) rotate(-22deg) scale(0.85);
     opacity: 0;
   }
+
   15% {
     opacity: 1;
   }
+
   85% {
     opacity: 1;
   }
+
   100% {
     transform: translate(120vw, -45vh) rotate(-22deg) scale(1.15);
     opacity: 0;
@@ -192,12 +198,15 @@ body {
     transform: translate(120vw, 45vh) rotate(22deg) scale(0.85);
     opacity: 0;
   }
+
   15% {
     opacity: 1;
   }
+
   85% {
     opacity: 1;
   }
+
   100% {
     transform: translate(-120vw, -40vh) rotate(22deg) scale(1.15);
     opacity: 0;
@@ -239,10 +248,13 @@ body {
 
 /* Pulsing Maneuver Alert */
 @keyframes alertPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     border-color: var(--parth-red);
     box-shadow: 0 0 15px rgba(255, 0, 0, 0.7);
   }
+
   50% {
     border-color: var(--parth-neon-orange);
     box-shadow: 0 0 30px rgba(255, 95, 31, 0.9);
@@ -275,6 +287,7 @@ body {
     opacity: 0;
     transform: translateY(16px) scale(0.985);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -286,6 +299,7 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+
   100% {
     opacity: 0;
     transform: translateY(12px);
@@ -301,3 +315,45 @@ body {
   animation: viewFadeOutSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+
+
+/* Traffic Transition Parallel Flows */
+@keyframes trafficFlowDown {
+  0% {
+    transform: translateY(-120px);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(115vh);
+    opacity: 0;
+  }
+}
+
+@keyframes trafficFlowUp {
+  0% {
+    transform: translateY(120px);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-115vh);
+    opacity: 0;
+  }
+}
