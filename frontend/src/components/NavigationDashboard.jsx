@@ -51,7 +51,7 @@ export default function NavigationDashboard({
 
     // If using Backend API, attempt to fetch from FastAPI endpoint
     if (useBackendApi) {
-      fetch(`http://127.0.0.1:8000/api/simulate/${currentRoute.fileName}`)
+      fetch(`http://10.47.110.40:8000/api/simulate/${currentRoute.fileName}`)
         .then(res => res.json())
         .then(data => {
           if (data && data.raw_trace) {
@@ -96,7 +96,7 @@ export default function NavigationDashboard({
           setIsFinished(true);
           try {
             confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-          } catch (e) {}
+          } catch (e) { }
           return prev;
         }
         return prev + 1;

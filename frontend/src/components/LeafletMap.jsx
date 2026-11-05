@@ -36,7 +36,7 @@ export default function LeafletMap({
       L.control.zoom({ position: 'topright' }).addTo(map);
 
       // Dark theme CartoDB basemap
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_52r0_1_4bf1cedc85b862faa6786a20', {
         maxZoom: 19,
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap &copy; CARTO'
