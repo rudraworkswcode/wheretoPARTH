@@ -1,0 +1,83 @@
+================================================================================
+WHERE TO PARTH — BUILD & MODIFICATION AUDIT LOG
+Date: 2026-11-05
+Author: Antigravity AI Assistant
+Problem Statement: Lane-Level Vehicle Navigation Using NavIC Satellite Signals
+Problem Statement ID: DL-SJBIT-HK26-GOVP009
+================================================================================
+
+[PHASE 1: REPOSITORY & SPECIFICATION AUDIT]
+- Inspected STRUCTURE/ folder:
+  * PRD.md: Verified product brief, exact welcome message, F1-inspired theme, functional requirements FR-01 through FR-17.
+  * Tech-stack.md: Verified React frontend planned responsibilities, FastAPI backend role, OSRM Map Matching integration, color palette (#FF0000 Red, #FF5F1F Neon Orange, #FFFFFF White, #000000 Black).
+  * Architecture.md: Identified noise configuration key mismatch between noise_config.json and main.py (drift_bias vs drift_bias_lat/lon).
+  * Sample-Data.md: Examined location catalog (Kengeri, Kanakapura, Somapura) and 5 predefined routes (R-01 through R-05).
+  * User-Flow.md: Mapped user journey from Welcome Page -> Brief Page -> Location Selection -> Route Display -> Live Vehicle Simulation with 1 km advance manoeuvre alert.
+  * criteria.md: Mapped hackathon evaluation criteria and limitations disclosure.
+- Inspected mock_data/ directory:
+  * keng_knkp.geojson (64 coordinates) -> R-01: Kengeri to Kanakapura (Faster)
+  * knkp_keng.geojson (212 coordinates) -> R-02: Kanakapura to Kengeri (Reverse)
+  * knkp_somp.geojson (103 coordinates) -> R-05: Kanakapura to Somapura (Inter-district)
+  * somp_kank(long).geojson (150 coordinates) -> R-04: Somapura to Kanakapura (Alternative/Long)
+  * somp_keng.geojson (101 coordinates) -> R-03: Somapura to Kengeri (Urban Arterial)
+
+[PHASE 2: FASTAPI BACKEND REFINEMENT (main.py)]
+- File modified: D:\CODE\wheretoPARTH\main.py
+- Addressed configuration parameter mismatch:
+  * Updated load_noise_config() to support drift_bias_lat, drift_bias_lon, and average_dropout_duration in addition to default drift_bias.
+  * Updated generate_navic_noise() to apply independent directional atmospheric drift on latitude and longitude vectors.
+- Enhanced OSRM Map Matching resilience:
+  * Added fallback mechanism in fetch_osrm_correction(): attempts local WSL OSRM endpoint (http://127.0.0.1:5000) first, falls back to public OSRM (http://router.project-osrm.org), and if network or match is unavailable, gracefully returns Feature with status "NoMatch" and sampled points instead of raising an unhandled 500 exception.
+  * Preserved search radius ("50" metres) parameter for robust snapping.
+
+[PHASE 3: FRONTEND APPLICATION CREATION (frontend/)]
+- Initialized React + Vite application:
+  * Created frontend/package.json with dependencies: react, react-dom, leaflet, lucide-react, canvas-confetti, @vitejs/plugin-react, vite.
+  * Created frontend/vite.config.js configured for port 5173 with host enabled.
+  * Created frontend/index.html with Leaflet CSS and typography imports (Orbitron, Rajdhani, Inter).
+  * Created root package.json with unified dev/build/preview scripts.
+
+- Data Layer (frontend/src/data/):
+  * Extracted all 5 GeoJSON routes into rawRoutes.json with geographic metadata.
+  * Created routesData.js exporting enriched route catalog with precomputed total distance (km), estimated duration, and turn maneuvers.
+
+- Math & Simulation Engine (frontend/src/utils/geoUtils.js):
+  * haversineDistance(): Computes geographic distance in meters between any two points.
+  * calculateBearing(): Determines vehicle heading (0–360°).
+  * generateNavicNoise(): Simulates Gaussian coordinate jitter, cumulative atmospheric drift, and satellite dropouts.
+  * detectManeuvers(): Scans route curvature (turns > 25°), calculates cumulative route distance, determines turn instruction and lane guidance recommendation.
+  * estimateDeadReckoning(): Projects vehicle position vectors during GNSS signal interruption based on historical velocity and heading.
+  * calculateRouteMetrics(): Computes total route kilometers and drive time.
+
+- Styling & Theme (frontend/src/index.css):
+  * Integrated F1 racing aesthetic: Jet black background (#08090C), F1 Racing Red (#FF0000), Neon Orange (#FF5F1F), White (#FFFFFF), and Cyan/Green accents.
+  * Implemented diagonal crossing animations for two F1 cars (@keyframes carLeftToRight and @keyframes carRightToLeft) entering simultaneously from opposite screen corners.
+  * Added styling for telemetry HUD cards, racing buttons, and high-contrast pulse alert banners.
+
+- UI Components (frontend/src/components/):
+  * Header.jsx: Sticky navigation bar, branding, active route chip, and live NavIC satellite constellation status (8 Satellites, L5/S-band, HDOP 1.08).
+  * WelcomePage.jsx: Phase 01 view with animated crossing F1 cars, exact required welcome copy ("Welcome to where to PARTH - Your smarter way to navigate through Life"), and "ENTER MISSION BRIEF" action.
+  * BriefPage.jsx: Phase 02 view displaying exact approved brief copy including the Abhimanyu Chakravyuh metaphor ("Dw, Abhimanyu. This time, we'll get you out."), plus 4 technical pillar breakdown cards.
+  * RouteSelectionPage.jsx: Phase 03 view with Origin/Destination filters (Kengeri, Kanakapura, Somapura), route cards for all 5 catalog routes, collapsible noise parameter slider drawer, and API toggle.
+  * LeafletMap.jsx: Dark-mode Leaflet map rendering ground truth (Cyan), noisy NavIC satellite trace (Neon Orange dots/dashes), OSRM-matched trace (Red), start/finish pins, maneuver checkpoints, and rotated animated vehicle marker.
+  * AdvanceAlertBanner.jsx: Monitors vehicle position along route and displays prominent turn alert with distance countdown and lane guidance whenever an upcoming maneuver is within ~1000m (1 km).
+  * SignalLossBanner.jsx: Appears during simulated satellite dropouts, notifying that Dead Reckoning has taken over using velocity and heading vectors.
+  * TelemetryHUD.jsx: Displays digital speedometer (km/h), F1 tachometer RPM gauge, compass bearing, positioning accuracy error metrics (raw satellite error vs snapped error and % reduction), progress bar, and ETA.
+  * SimulationControls.jsx: Controls for Play, Pause, Step Forward, Reset, Speed multipliers (1x, 2x, 5x, 10x), trace layer visibility toggles, and route selector.
+  * TechnicalExplainer.jsx: Modal detailing technical boundaries and evaluation criteria (simulated GNSS vs live NavIC, OSRM snapping vs lane detection).
+  * NavigationDashboard.jsx: Main controller orchestrating telemetry state, animation loop, speed dynamics, alert triggering, and finish line confetti celebration.
+  * App.jsx: Top-level view routing and shared noise parameter state.
+  * main.jsx: Application mount point.
+
+[PHASE 4: DOCUMENTATION & COMPONENT GUIDE]
+- Created components.md:
+  * Full file directory map.
+  * Detailed breakdown of all 11 components with their file paths, responsibilities, input props, and step-by-step replacement instructions.
+- Created CHANGES.log:
+  * Complete audit trail of all changes.
+
+[PHASE 5: BUILD & VERIFICATION]
+- Executed `npm run build --prefix frontend`.
+- Result: Vite production build succeeded in 2.20s with zero errors or warnings.
+  * Output bundle: dist/index.html, dist/assets/index-BqcIM9va.css, dist/assets/index-DF_drQF7.js.
+================================================================================
