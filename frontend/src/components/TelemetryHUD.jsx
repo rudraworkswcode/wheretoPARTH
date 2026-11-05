@@ -1,17 +1,14 @@
 import React from 'react';
-import { Gauge, Compass, Radio, Activity, Target, Zap, Clock } from 'lucide-react';
+import { Gauge, Compass, Target, Clock } from 'lucide-react';
 
 export default function TelemetryHUD({
-  speedKmh = 48,
+  speedKmh = 40,
   bearing = 0,
-  currentCoord = [77.50, 12.88],
-  errorMetrics = { rawErrorMeters: 28.4, correctedErrorMeters: 1.1, reductionPercent: 96.1 },
+  errorMetrics = { rawErrorMeters: 6.2, correctedErrorMeters: 0.8, reductionPercent: 87 },
   progressPercent = 0,
   distanceCoveredKm = 0,
   distanceRemainingKm = 0,
-  etaMinutes = 0,
-  matchStatus = "OSRM Map Matched",
-  confidence = 0.94
+  etaMinutes = 0
 }) {
   const getCardinal = (deg) => {
     const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -25,7 +22,7 @@ export default function TelemetryHUD({
       gap: '14px',
       marginBottom: '16px'
     }}>
-      {/* 1. Speedometer & Velocity Gauge */}
+      {/* 1. Speedometer Derived From Coordinate Displacement */}
       <div className="racing-card" style={{ padding: '14px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <span className="font-rajdhani" style={{ fontSize: '11px', color: '#8E95A5', letterSpacing: '0.8px', fontWeight: 700 }}>
@@ -41,11 +38,10 @@ export default function TelemetryHUD({
             KM/H
           </span>
         </div>
-        {/* F1 Tachometer Bars */}
         <div style={{ display: 'flex', gap: '3px', marginTop: '8px' }}>
           {[...Array(12)].map((_, i) => {
             const active = i < Math.min(12, Math.round((speedKmh / 90) * 12));
-            const color = i < 7 ? 'var(--parth-green)' : i < 10 ? 'var(--parth-yellow)' : 'var(--parth-red)';
+            const color = i < 8 ? 'var(--parth-neon-orange)' : 'var(--parth-red)';
             return (
               <div
                 key={i}
@@ -78,28 +74,28 @@ export default function TelemetryHUD({
           </span>
         </div>
         <div className="font-rajdhani" style={{ fontSize: '11px', color: '#8E95A5', marginTop: '6px' }}>
-          Vector Track: {bearing < 180 ? 'Inbound Southeast' : 'Outbound Northwest'}
+          Track: {bearing < 180 ? 'Inbound Southeast' : 'Outbound Northwest'}
         </div>
       </div>
 
-      {/* 3. Positioning Error & Accuracy Metric */}
-      <div className="racing-card" style={{ padding: '14px 18px', borderColor: 'rgba(0, 240, 255, 0.3)' }}>
+      {/* 3. Positioning Accuracy Metric */}
+      <div className="racing-card" style={{ padding: '14px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
           <span className="font-rajdhani" style={{ fontSize: '11px', color: '#8E95A5', letterSpacing: '0.8px', fontWeight: 700 }}>
             POSITIONING ACCURACY
           </span>
-          <Target size={14} color="var(--parth-cyan)" />
+          <Target size={14} color="var(--parth-neon-orange)" />
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span className="font-orbitron" style={{ fontSize: '24px', fontWeight: 900, color: 'var(--parth-cyan)' }}>
+          <span className="font-orbitron" style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF' }}>
             ±{errorMetrics.correctedErrorMeters}m
           </span>
           <span className="font-rajdhani" style={{ fontSize: '12px', color: '#8E95A5' }}>
             (Raw: ±{errorMetrics.rawErrorMeters}m)
           </span>
         </div>
-        <div className="font-rajdhani" style={{ fontSize: '11px', color: 'var(--parth-green)', marginTop: '6px', fontWeight: 600 }}>
-          ⚡ {errorMetrics.reductionPercent}% Error Reduction via Snapping
+        <div className="font-rajdhani" style={{ fontSize: '11px', color: 'var(--parth-neon-orange)', marginTop: '6px', fontWeight: 600 }}>
+          {errorMetrics.reductionPercent}% Error Reduction via Snapping
         </div>
       </div>
 
@@ -109,7 +105,7 @@ export default function TelemetryHUD({
           <span className="font-rajdhani" style={{ fontSize: '11px', color: '#8E95A5', letterSpacing: '0.8px', fontWeight: 700 }}>
             JOURNEY PROGRESS
           </span>
-          <Clock size={14} color="var(--parth-green)" />
+          <Clock size={14} color="#FFFFFF" />
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <span className="font-orbitron" style={{ fontSize: '24px', fontWeight: 900, color: '#FFF' }}>
@@ -119,7 +115,6 @@ export default function TelemetryHUD({
             Rem: {distanceRemainingKm} km
           </span>
         </div>
-        {/* Progress Bar */}
         <div style={{
           width: '100%',
           height: '6px',
@@ -139,4 +134,3 @@ export default function TelemetryHUD({
     </div>
   );
 }
-

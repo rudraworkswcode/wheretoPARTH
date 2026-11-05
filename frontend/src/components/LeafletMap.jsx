@@ -7,13 +7,11 @@ export default function LeafletMap({
   matchedTrace,
   currentCoord,
   currentBearing = 0,
-  layerVisibility,
   activeAlertManeuver
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layersRef = useRef({
-    groundTruth: null,
     noisyLine: null,
     noisyPoints: [],
     matchedLine: null,
@@ -23,7 +21,7 @@ export default function LeafletMap({
     maneuverMarkers: []
   });
 
-  // Initialize Map
+  // Initialize Map with dark CARTO tiles
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -35,8 +33,8 @@ export default function LeafletMap({
 
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // Dark theme CartoDB basemap
-      L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_52r0_1_4bf1cedc85b862faa6786a20', {
+      // Dark navigation surface basemap (CartoDB Dark Matter)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap &copy; CARTO'
@@ -44,13 +42,13 @@ export default function LeafletMap({
 
       mapInstanceRef.current = map;
     }
-
-    return () => {
-      // Keep map instance alive across rerenders
-    };
   }, []);
 
-  // Update Route and Traces
+  // Update Route and Traces according to approved palette:
+  // Red (#FF0000) for primary active/matched route
+  // Neon Orange (#FF5F1F) for noisy satellite trace & manoeuvre emphasis
+  // White (#FFFFFF) for markers, labels, high contrast details
+  // Black (#000000) for base surface
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !route || !route.coordinates) return;
@@ -58,7 +56,6 @@ export default function LeafletMap({
     const layers = layersRef.current;
 
     // Clear previous vector layers
-    if (layers.groundTruth) map.removeLayer(layers.groundTruth);
     if (layers.noisyLine) map.removeLayer(layers.noisyLine);
     if (layers.matchedLine) map.removeLayer(layers.matchedLine);
     if (layers.startMarker) map.removeLayer(layers.startMarker);
@@ -68,22 +65,21 @@ export default function LeafletMap({
     layers.maneuverMarkers.forEach(m => map.removeLayer(m));
     layers.maneuverMarkers = [];
 
-    // Convert GeoJSON [lon, lat] to Leaflet [lat, lon]
     const latLngs = route.coordinates.map(c => [c[1], c[0]]);
 
-    // 1. Ground Truth Reference (Cyan)
-    if (layerVisibility.groundTruth) {
-      layers.groundTruth = L.polyline(latLngs, {
-        color: '#00F0FF',
-        weight: 3,
-        opacity: 0.7,
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(map);
-    }
+    // 1. Primary Active Matched Route (Red #FF0000)
+    const matchedCoords = matchedTrace && matchedTrace.length > 0 ? matchedTrace : route.coordinates;
+    const matchedLatLngs = matchedCoords.map(c => [c[1], c[0]]);
+    layers.matchedLine = L.polyline(matchedLatLngs, {
+      color: '#FF0000',
+      weight: 4.5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(map);
 
-    // 2. Noisy NavIC Satellite Trace (Neon Orange Dotted)
-    if (layerVisibility.noisyTrace && noisyTrace && noisyTrace.length > 0) {
+    // 2. Progressive Noisy NavIC Satellite Trace (Neon Orange #FF5F1F)
+    if (noisyTrace && noisyTrace.length > 0) {
       const noisyLatLngs = noisyTrace.map(item => [item.coord[1], item.coord[0]]);
       layers.noisyLine = L.polyline(noisyLatLngs, {
         color: '#FF5F1F',
@@ -92,59 +88,46 @@ export default function LeafletMap({
         opacity: 0.85
       }).addTo(map);
 
-      // Add small circle markers for noisy satellite points
+      // Add point markers for observed noisy positions
       noisyTrace.forEach((item, idx) => {
         if (idx % 2 === 0) {
           const pt = L.circleMarker([item.coord[1], item.coord[0]], {
             radius: 2.5,
             fillColor: '#FF5F1F',
-            color: '#FFB088',
-            weight: 1,
-            fillOpacity: 0.8
+            color: '#FFFFFF',
+            weight: 0.8,
+            fillOpacity: 0.85
           }).addTo(map);
           layers.noisyPoints.push(pt);
         }
       });
     }
 
-    // 3. OSRM Matched Route (F1 Racing Red)
-    if (layerVisibility.matchedTrace) {
-      const matchedCoords = matchedTrace && matchedTrace.length > 0 ? matchedTrace : route.coordinates;
-      const matchedLatLngs = matchedCoords.map(c => [c[1], c[0]]);
-      layers.matchedLine = L.polyline(matchedLatLngs, {
-        color: '#FF0000',
-        weight: 5,
-        opacity: 0.95,
-        lineCap: 'round',
-        lineJoin: 'round'
-      }).addTo(map);
-    }
-
-    // 4. Start & Finish Markers
+    // 3. Start & Destination Markers (White with Red / Neon Orange borders)
     const startIcon = L.divIcon({
       className: 'custom-flag-marker',
-      html: `<div style="background:#00FF66; color:#000; font-family:Orbitron; font-size:10px; font-weight:900; padding:3px 6px; border-radius:3px; border:1px solid #fff; box-shadow:0 0 10px #00FF66;">START</div>`,
-      iconSize: [44, 20],
-      iconAnchor: [22, 10]
+      html: `<div style="background:#000000; color:#FFFFFF; font-family:Orbitron; font-size:10px; font-weight:900; padding:3px 7px; border-radius:3px; border:1px solid #FFFFFF; box-shadow:0 0 10px rgba(255,255,255,0.4);">START</div>`,
+      iconSize: [46, 20],
+      iconAnchor: [23, 10]
     });
 
     const endIcon = L.divIcon({
       className: 'custom-flag-marker',
-      html: `<div style="background:#FF0000; color:#fff; font-family:Orbitron; font-size:10px; font-weight:900; padding:3px 6px; border-radius:3px; border:1px solid #fff; box-shadow:0 0 10px #FF0000;">FINISH</div>`,
-      iconSize: [48, 20],
-      iconAnchor: [24, 10]
+      html: `<div style="background:#FF0000; color:#FFFFFF; font-family:Orbitron; font-size:10px; font-weight:900; padding:3px 7px; border-radius:3px; border:1px solid #FFFFFF; box-shadow:0 0 12px #FF0000;">DEST</div>`,
+      iconSize: [46, 20],
+      iconAnchor: [23, 10]
     });
 
     layers.startMarker = L.marker(latLngs[0], { icon: startIcon }).addTo(map);
     layers.endMarker = L.marker(latLngs[latLngs.length - 1], { icon: endIcon }).addTo(map);
 
-    // 5. Maneuver Turn Markers
+    // 4. Maneuver Markers (Neon Orange #FF5F1F)
     if (route.maneuvers) {
       route.maneuvers.forEach((m, idx) => {
         if (m.turnType !== 'destination') {
           const mIcon = L.divIcon({
             className: 'turn-icon-marker',
-            html: `<div style="background:rgba(22,25,32,0.9); border:1px solid var(--parth-neon-orange); color:var(--parth-neon-orange); width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold;">${idx + 1}</div>`,
+            html: `<div style="background:#000000; border:1px solid #FF5F1F; color:#FF5F1F; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; font-family:Orbitron;">${idx + 1}</div>`,
             iconSize: [20, 20],
             iconAnchor: [10, 10]
           });
@@ -154,10 +137,9 @@ export default function LeafletMap({
       });
     }
 
-    // Fit Bounds
     map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
 
-  }, [route, noisyTrace, matchedTrace, layerVisibility]);
+  }, [route, noisyTrace, matchedTrace]);
 
   // Update Animated Vehicle Marker
   useEffect(() => {
@@ -172,7 +154,6 @@ export default function LeafletMap({
         <svg viewBox="0 0 40 40" width="36" height="36" fill="none">
           <circle cx="20" cy="20" r="18" fill="rgba(255, 0, 0, 0.25)" stroke="#FF0000" stroke-width="1.5" />
           <polygon points="20,4 32,32 20,24 8,32" fill="#FF0000" stroke="#FFFFFF" stroke-width="1.5" />
-          <circle cx="20" cy="18" r="3" fill="#FFD700" />
         </svg>
       </div>
     `;
@@ -196,13 +177,13 @@ export default function LeafletMap({
     <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '440px', borderRadius: '8px', overflow: 'hidden' }}>
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Map Legend Overlay */}
+      {/* Map Legend Overlay in Red, Neon Orange, White, Black palette */}
       <div style={{
         position: 'absolute',
         bottom: '16px',
         left: '16px',
         zIndex: 500,
-        background: 'rgba(10, 12, 16, 0.85)',
+        background: 'rgba(0, 0, 0, 0.85)',
         backdropFilter: 'blur(8px)',
         border: '1px solid var(--parth-border)',
         borderRadius: '6px',
@@ -212,19 +193,14 @@ export default function LeafletMap({
         gap: '6px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '14px', height: '4px', background: '#00F0FF', borderRadius: '2px' }} />
-          <span className="font-rajdhani" style={{ fontSize: '11px', color: '#B0B7C6' }}>Ground Truth Route</span>
+          <div style={{ width: '14px', height: '4px', background: '#FF0000', borderRadius: '2px' }} />
+          <span className="font-rajdhani" style={{ fontSize: '11px', color: '#FFFFFF' }}>Active Route</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '14px', height: '4px', background: '#FF5F1F', borderTop: '2px dashed #FF5F1F' }} />
-          <span className="font-rajdhani" style={{ fontSize: '11px', color: '#B0B7C6' }}>Simulated NavIC Noise</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '14px', height: '4px', background: '#FF0000', borderRadius: '2px' }} />
-          <span className="font-rajdhani" style={{ fontSize: '11px', color: '#B0B7C6' }}>OSRM Matched Trace</span>
+          <span className="font-rajdhani" style={{ fontSize: '11px', color: '#FFFFFF' }}>NavIC Satellite Trace</span>
         </div>
       </div>
     </div>
   );
 }
-

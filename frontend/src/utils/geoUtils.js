@@ -1,10 +1,11 @@
 /**
- * Geographic, Navigation, and NavIC Simulation Utilities
+ * Geographic, Navigation, and NavIC Utilities
+ * Latitude-aware meters-based coordinate projection and progressive corridor modeling.
  */
 
-// Convert degrees to radians
-const toRad = (deg) => (deg * Math.PI) / 180;
-const toDeg = (rad) => (rad * 180) / Math.PI;
+// Convert degrees to radians and vice-versa
+export const toRad = (deg) => (deg * Math.PI) / 180;
+export const toDeg = (rad) => (rad * 180) / Math.PI;
 
 /**
  * Calculates distance between two [lon, lat] points in meters using Haversine formula
@@ -51,53 +52,50 @@ function randomNormal(mean = 0, stdDev = 1) {
 }
 
 /**
- * Simulates NavIC Satellite Positioning Noise matching noise_config.json & main.py:
- * - Gaussian coordinate jitter (lat/lon variance)
- * - Cumulative atmospheric drift
- * - Simulated signal dropouts (urban canyon / satellite blockage)
+ * Meters to degrees latitude conversion
  */
-export function generateNavicNoise(coordinates, config = {}) {
+export function metersToLatDeg(meters) {
+  return meters / 111139.0;
+}
+
+/**
+ * Meters to degrees longitude conversion (latitude-aware)
+ */
+export function metersToLonDeg(meters, lat) {
+  const rad = toRad(lat);
+  return meters / (111139.0 * Math.cos(rad));
+}
+
+/**
+ * Generates a single noisy coordinate in physical meters corridor
+ * matching Python backend units (std in meters: ~6.0m corridor)
+ */
+export function generateNoisyPoint(pt, index, config = {}) {
   const {
-    latitude_variance = 0.00005,
-    longitude_variance = 0.00005,
-    drift_bias_lat = 0.00001,
-    drift_bias_lon = -0.00001,
-    dropout_percentage = 0.04
+    noise_std_meters = 6.0,
+    drift_bias_lat_meters = 0.05,
+    drift_bias_lon_meters = -0.05
   } = config;
 
-  const latStd = Math.sqrt(Math.max(0, latitude_variance));
-  const lonStd = Math.sqrt(Math.max(0, longitude_variance));
+  const [lon, lat] = pt;
+  const noiseLatM = randomNormal(0, noise_std_meters);
+  const noiseLonM = randomNormal(0, noise_std_meters);
+  const cumDriftLatM = index * drift_bias_lat_meters;
+  const cumDriftLonM = index * drift_bias_lon_meters;
 
-  const noisyTrace = [];
-  const dropouts = [];
+  const dLat = metersToLatDeg(noiseLatM + cumDriftLatM);
+  const dLon = metersToLonDeg(noiseLonM + cumDriftLonM, lat);
 
-  for (let i = 0; i < coordinates.length; i++) {
-    const pt = coordinates[i];
+  const noisyLon = Number((lon + dLon).toFixed(6));
+  const noisyLat = Number((lat + dLat).toFixed(6));
 
-    // Preserve start and end point
-    if (i > 0 && i < coordinates.length - 1 && Math.random() < dropout_percentage) {
-      dropouts.push(i);
-      continue; // Dropped satellite fix
-    }
-
-    const lonNoise = randomNormal(0, lonStd);
-    const latNoise = randomNormal(0, latStd);
-    const cumDriftLon = i * drift_bias_lon;
-    const cumDriftLat = i * drift_bias_lat;
-
-    const noisyLon = Number((pt[0] + lonNoise + cumDriftLon).toFixed(6));
-    const noisyLat = Number((pt[1] + latNoise + cumDriftLat).toFixed(6));
-
-    noisyTrace.push({
-      originalIndex: i,
-      originalCoord: pt,
-      coord: [noisyLon, noisyLat],
-      errorMeters: haversineDistance(pt, [noisyLon, noisyLat]),
-      isDropout: false
-    });
-  }
-
-  return { noisyTrace, dropouts };
+  return {
+    originalIndex: index,
+    originalCoord: pt,
+    coord: [noisyLon, noisyLat],
+    errorMeters: haversineDistance(pt, [noisyLon, noisyLat]),
+    isDropout: false
+  };
 }
 
 /**
@@ -125,13 +123,12 @@ export function estimateDeadReckoning(lastCoord, bearingDeg, speedKmh, elapsedSe
 }
 
 /**
- * Scans route coordinates and detects manoeuvres (turns > 25 deg).
- * Calculates cumulative distances so advance notifications trigger ~1 km prior.
+ * Scans route coordinates and detects road-level manoeuvres (turns > 25 deg).
+ * Note: Uses verified road-level manoeuvre wording; avoids unverified lane claims.
  */
 export function detectManeuvers(coordinates) {
   if (!coordinates || coordinates.length < 3) return [];
 
-  // Compute cumulative distance along the path
   const cumDists = [0];
   for (let i = 1; i < coordinates.length; i++) {
     const d = haversineDistance(coordinates[i - 1], coordinates[i]);
@@ -157,24 +154,19 @@ export function detectManeuvers(coordinates) {
     if (absAngle >= 25) {
       let turnType = 'slight_right';
       let instruction = 'Keep slight right';
-      let laneGuidance = 'Keep Center-Right Lane';
 
       if (angleDiff > 60) {
         turnType = 'sharp_right';
         instruction = 'Turn right at junction';
-        laneGuidance = 'Shift to Right Turn Lane';
       } else if (angleDiff > 25) {
         turnType = 'right';
         instruction = 'Turn right';
-        laneGuidance = 'Stay in Right Lane';
       } else if (angleDiff < -60) {
         turnType = 'sharp_left';
         instruction = 'Turn left at junction';
-        laneGuidance = 'Shift to Left Turn Lane';
       } else if (angleDiff < -25) {
         turnType = 'left';
         instruction = 'Turn left';
-        laneGuidance = 'Stay in Left Lane';
       }
 
       maneuvers.push({
@@ -183,21 +175,18 @@ export function detectManeuvers(coordinates) {
         distanceFromStart: cumDists[i],
         turnType,
         angle: Math.round(absAngle),
-        instruction,
-        laneGuidance
+        instruction
       });
     }
   }
 
-  // Add final destination arrival
   maneuvers.push({
     index: coordinates.length - 1,
     coord: coordinates[coordinates.length - 1],
     distanceFromStart: totalDist,
     turnType: 'destination',
     angle: 0,
-    instruction: 'Destination Reached',
-    laneGuidance: 'Exit road to destination bay'
+    instruction: 'Destination Reached'
   });
 
   return maneuvers;
@@ -215,7 +204,6 @@ export function calculateRouteMetrics(coordinates) {
     totalMeters += haversineDistance(coordinates[i - 1], coordinates[i]);
   }
   const totalKm = totalMeters / 1000;
-  // Estimate driving time at avg 45 km/h
   const minutes = Math.round((totalKm / 45) * 60);
   return {
     totalMeters: Math.round(totalMeters),
@@ -223,4 +211,3 @@ export function calculateRouteMetrics(coordinates) {
     totalDurationMin: Math.max(2, minutes)
   };
 }
-

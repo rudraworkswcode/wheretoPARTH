@@ -1,7 +1,8 @@
 """
-GPS Simulation Backend - FastAPI Application
+GPS Navigation Backend - FastAPI Application
 Simulates NavIC satellite GPS jitter, atmospheric drift, and signal dropouts,
-and integrates with a local OSRM Map Matching container to reconstruct road geometries.
+and integrates with OSRM Map Matching to reconstruct road geometries.
+Coordinates can be generated progressively with look-ahead support.
 """
 
 import json
@@ -9,12 +10,12 @@ import logging
 import math
 import random
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -22,13 +23,12 @@ from pydantic import BaseModel, Field
 # Logging & Paths
 # ---------------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(message)s")
-logger = logging.getLogger("navic_simulator")
+logger = logging.getLogger("navic_navigator")
 
 BASE_DIR: Path = Path(__file__).resolve().parent
 MOCK_DATA_DIR: Path = BASE_DIR / "mock_data"
 CONFIG_PATH: Path = BASE_DIR / "noise_config.json"
 
-# Pointing to local WSL Docker container or public fallback
 OSRM_LOCAL_URL: str = "http://127.0.0.1:5000/match/v1/driving/{coordinates}"
 OSRM_PUBLIC_URL: str = "http://router.project-osrm.org/match/v1/driving/{coordinates}"
 FRONTEND_DIST: Path = BASE_DIR / "frontend" / "dist"
@@ -49,7 +49,15 @@ class SimulationResponse(BaseModel):
     raw_trace: List[List[float]]
     corrected_trace: Dict[str, Any]
 
-app = FastAPI(title="NavIC Simulation Service")
+class ProgressiveUpdateResponse(BaseModel):
+    status: str = "success"
+    route_id: str
+    start_index: int
+    end_index: int
+    coordinates: List[List[float]]
+    has_more: bool
+
+app = FastAPI(title="NavIC Navigation Service")
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,25 +71,29 @@ app.add_middleware(
 # Core Logic
 # ---------------------------------------------------------------------------
 def load_noise_config() -> Dict[str, float]:
+    """
+    Loads noise configuration defined in metres.
+    Default standard deviation is 6.0 metres (realistic GNSS corridor).
+    """
     default_config = {
-        "latitude_variance": 0.00005,
-        "longitude_variance": 0.00005,
+        "noise_std_meters": 6.0,
+        "drift_bias_lat_meters": 0.05,
+        "drift_bias_lon_meters": -0.05,
         "dropout_percentage": 0.02,
-        "drift_bias": 0.00001,
-        "drift_bias_lat": 0.00001,
-        "drift_bias_lon": -0.00001,
         "average_dropout_duration": 2.0,
     }
     try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            cfg = default_config.copy()
-            for k, v in data.items():
-                try:
-                    cfg[k] = float(v)
-                except (ValueError, TypeError):
-                    continue
-            return cfg
+        if CONFIG_PATH.is_file():
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                cfg = default_config.copy()
+                for k, v in data.items():
+                    try:
+                        cfg[k] = float(v)
+                    except (ValueError, TypeError):
+                        continue
+                return cfg
+        return default_config
     except Exception as exc:
         logger.warning(f"Config error, using defaults: {exc}")
         return default_config
@@ -95,6 +107,29 @@ def extract_coordinates(geojson_data: Dict[str, Any]) -> List[List[float]]:
     except Exception:
         raise ValueError("Invalid GeoJSON LineString format.")
 
+def meters_to_lat_deg(meters: float) -> float:
+    return meters / 111139.0
+
+def meters_to_lon_deg(meters: float, lat: float) -> float:
+    return meters / (111139.0 * math.cos(math.radians(lat)))
+
+def generate_noisy_point(pt: List[float], index: int, config: Dict[str, float]) -> List[float]:
+    """Generates a latitude-aware noisy coordinate within a physically realistic meter corridor."""
+    lon, lat = pt[0], pt[1]
+    std_m = max(0.5, config.get("noise_std_meters", 6.0))
+    drift_lat_m = config.get("drift_bias_lat_meters", 0.05)
+    drift_lon_m = config.get("drift_bias_lon_meters", -0.05)
+
+    noise_lat_m = float(np.random.normal(0.0, std_m))
+    noise_lon_m = float(np.random.normal(0.0, std_m))
+    cum_drift_lat_m = index * drift_lat_m
+    cum_drift_lon_m = index * drift_lon_m
+
+    dlat = meters_to_lat_deg(noise_lat_m + cum_drift_lat_m)
+    dlon = meters_to_lon_deg(noise_lon_m + cum_drift_lon_m, lat)
+
+    return [round(lon + dlon, 6), round(lat + dlat, 6)]
+
 def generate_navic_noise(geojson_path: Path, config: Dict[str, float]) -> List[List[float]]:
     with open(geojson_path, "r", encoding="utf-8") as f:
         coords = extract_coordinates(json.load(f))
@@ -102,26 +137,12 @@ def generate_navic_noise(geojson_path: Path, config: Dict[str, float]) -> List[L
     if len(coords) < 2:
         raise ValueError("Requires at least 2 coordinates.")
 
-    lat_std = math.sqrt(max(0.0, config.get("latitude_variance", 0.00005)))
-    lon_std = math.sqrt(max(0.0, config.get("longitude_variance", 0.00005)))
-    drift_lat = config.get("drift_bias_lat", config.get("drift_bias", 0.00001))
-    drift_lon = config.get("drift_bias_lon", -config.get("drift_bias", 0.00001))
     dropout_pct = config.get("dropout_percentage", 0.02)
-
     noisy_trace = []
     for i, pt in enumerate(coords):
         if 0 < i < len(coords) - 1 and random.random() < dropout_pct:
-            continue 
-
-        lon_noise = float(np.random.normal(0.0, lon_std))
-        lat_noise = float(np.random.normal(0.0, lat_std))
-        cumulative_drift_lon = i * drift_lon
-        cumulative_drift_lat = i * drift_lat
-
-        noisy_trace.append([
-            round(pt[0] + lon_noise + cumulative_drift_lon, 6),
-            round(pt[1] + lat_noise + cumulative_drift_lat, 6)
-        ])
+            continue
+        noisy_trace.append(generate_noisy_point(pt, i, config))
 
     return noisy_trace
 
@@ -139,7 +160,7 @@ async def fetch_osrm_correction(noisy_coords: List[List[float]]) -> Dict[str, An
         "geometries": "geojson",
         "overview": "full",
         "steps": "false",
-        "radiuses": radius_string 
+        "radiuses": radius_string
     }
 
     # Attempt local WSL OSRM container first, then public OSRM fallback
@@ -208,6 +229,37 @@ async def simulate_route(route_id: str):
         route_id=target,
         raw_trace=noisy_trace,
         corrected_trace=corrected_geojson,
+    )
+
+@app.get("/api/routes/{route_id}/lookahead", response_model=ProgressiveUpdateResponse)
+def get_progressive_lookahead(
+    route_id: str,
+    from_index: int = Query(0, ge=0),
+    count: int = Query(5, ge=1, le=20)
+):
+    """
+    Returns progressive coordinate look-ahead ahead of active vehicle position.
+    """
+    target = route_id if route_id.endswith(".geojson") else f"{route_id}.geojson"
+    path = MOCK_DATA_DIR / target
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Route not found")
+
+    with open(path, "r", encoding="utf-8") as f:
+        coords = extract_coordinates(json.load(f))
+
+    config = load_noise_config()
+    end_idx = min(len(coords), from_index + count)
+    slice_coords = coords[from_index:end_idx]
+
+    noisy_slice = [generate_noisy_point(pt, from_index + i, config) for i, pt in enumerate(slice_coords)]
+
+    return ProgressiveUpdateResponse(
+        route_id=target,
+        start_index=from_index,
+        end_index=end_idx,
+        coordinates=noisy_slice,
+        has_more=end_idx < len(coords)
     )
 
 if __name__ == "__main__":

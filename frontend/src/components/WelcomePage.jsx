@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowRight, Zap, Shield, Navigation, Gauge } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Zap } from 'lucide-react';
 
 // Sleek Top-down / Isometric F1 Racing Car SVG
 function F1CarSvg({ primaryColor = '#FF0000', accentColor = '#FFFFFF', glowColor = 'rgba(255,0,0,0.8)' }) {
@@ -43,7 +43,7 @@ function F1CarSvg({ primaryColor = '#FF0000', accentColor = '#FFFFFF', glowColor
 
       {/* Cockpit / Halo */}
       <ellipse cx="125" cy="40" rx="16" ry="8" fill="#080808" stroke="#444" strokeWidth="1" />
-      <circle cx="122" cy="40" r="4.5" fill="#FFD700" /> {/* Driver helmet */}
+      <circle cx="122" cy="40" r="4.5" fill="#FFD700" />
       <path d="M 115 40 L 138 40" stroke="#FFF" strokeWidth="2" strokeLinecap="round" />
 
       {/* Sidepods */}
@@ -64,6 +64,14 @@ function F1CarSvg({ primaryColor = '#FF0000', accentColor = '#FFFFFF', glowColor
 }
 
 export default function WelcomePage({ onProceed }) {
+  // Automatic progression after the introduction sequence
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onProceed();
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [onProceed]);
+
   return (
     <div style={{
       position: 'relative',
@@ -76,7 +84,7 @@ export default function WelcomePage({ onProceed }) {
       padding: '40px 20px',
       textAlign: 'center'
     }}>
-      {/* Background Racing Grid Lines & Chequered Accent */}
+      {/* Background Racing Grid Lines */}
       <div style={{
         position: 'absolute',
         inset: 0,
@@ -84,21 +92,20 @@ export default function WelcomePage({ onProceed }) {
         zIndex: 1
       }} />
 
-      {/* Diagonal F1 Car 1: Entering from Left moving Diagonally Across */}
+      {/* Crossing F1 Cars */}
       <div className="f1-car-diagonal-left">
         <F1CarSvg primaryColor="#FF0000" accentColor="#FFFFFF" glowColor="rgba(255,0,0,0.9)" />
       </div>
 
-      {/* Diagonal F1 Car 2: Entering from Right moving Diagonally Across */}
       <div className="f1-car-diagonal-right">
-        <F1CarSvg primaryColor="#FF5F1F" accentColor="#00F0FF" glowColor="rgba(255,95,31,0.9)" />
+        <F1CarSvg primaryColor="#FF5F1F" accentColor="#FFFFFF" glowColor="rgba(255,95,31,0.9)" />
       </div>
 
       {/* Content Container */}
       <div style={{
         position: 'relative',
         zIndex: 10,
-        maxWidth: '880px',
+        maxWidth: '820px',
         margin: '0 auto',
         padding: '30px'
       }}>
@@ -116,17 +123,17 @@ export default function WelcomePage({ onProceed }) {
         }}>
           <Zap size={14} color="var(--parth-red)" />
           <span className="font-orbitron" style={{ fontSize: '11px', color: '#fff', letterSpacing: '1px' }}>
-            DL-SJBIT-HK26-GOVP009 • 24-HOUR HACKATHON
+            DL-SJBIT-HK26-GOVP009
           </span>
         </div>
 
         {/* Hero Title */}
         <h1 className="font-orbitron" style={{
-          fontSize: 'clamp(32px, 5.5vw, 58px)',
+          fontSize: 'clamp(32px, 5.5vw, 54px)',
           fontWeight: 900,
           lineHeight: 1.15,
           letterSpacing: '2px',
-          marginBottom: '16px',
+          marginBottom: '24px',
           textTransform: 'uppercase'
         }}>
           WHERE TO <span style={{
@@ -137,90 +144,36 @@ export default function WelcomePage({ onProceed }) {
           }}>PARTH</span>
         </h1>
 
-        {/* Exact Required Welcome Message from PRD Section 1 */}
+        {/* Exact Approved Brief Copy */}
         <div style={{
-          background: 'rgba(22, 25, 32, 0.75)',
-          border: '1px solid rgba(255, 95, 31, 0.4)',
+          background: 'rgba(22, 25, 32, 0.85)',
+          border: '1px solid var(--parth-border)',
+          borderLeft: '4px solid var(--parth-red)',
           borderRadius: '8px',
-          padding: '20px 24px',
-          margin: '0 auto 32px auto',
-          maxWidth: '720px',
+          padding: '28px 32px',
+          textAlign: 'left',
           boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)'
         }}>
           <p className="font-rajdhani" style={{
-            fontSize: 'clamp(20px, 2.5vw, 26px)',
+            fontSize: 'clamp(18px, 2.4vw, 24px)',
             fontWeight: 700,
             color: 'var(--parth-white)',
-            letterSpacing: '0.8px',
-            lineHeight: 1.4
+            letterSpacing: '0.5px',
+            lineHeight: 1.5,
+            marginBottom: '16px'
           }}>
-            Welcome to where to PARTH - Your smarter way to navigate through Life
+            Every journey deserves the right direction and every turn, the right guidance. Your destination is the goal, we'll help you find the way.
           </p>
-          <div className="font-inter" style={{
-            fontSize: '13px',
-            color: '#A0A7B5',
-            marginTop: '8px'
+          <div className="font-orbitron" style={{
+            fontSize: 'clamp(16px, 2vw, 20px)',
+            fontWeight: 900,
+            color: 'var(--parth-neon-orange)',
+            letterSpacing: '1px'
           }}>
-            Lane-Level Vehicle Navigation Powered by NavIC Satellite Signals & Intelligent Map Snapping
+            Dw, Abhimanyu. This time, we'll get you out.
           </div>
         </div>
-
-        {/* 3 Telemetry Pillars */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '16px',
-          marginBottom: '36px',
-          textAlign: 'left'
-        }}>
-          <div className="racing-card" style={{ padding: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Navigation size={18} color="var(--parth-red)" />
-              <span className="font-orbitron" style={{ fontSize: '12px', fontWeight: 700 }}>
-                NAVIC SATELLITE
-              </span>
-            </div>
-            <p className="font-rajdhani" style={{ fontSize: '13px', color: '#B0B7C6' }}>
-              Simulates real-world GNSS jitter, cumulative drift, and signal dropouts.
-            </p>
-          </div>
-
-          <div className="racing-card" style={{ padding: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Gauge size={18} color="var(--parth-neon-orange)" />
-              <span className="font-orbitron" style={{ fontSize: '12px', fontWeight: 700 }}>
-                OSRM MAP MATCHING
-              </span>
-            </div>
-            <p className="font-rajdhani" style={{ fontSize: '13px', color: '#B0B7C6' }}>
-              Snaps distorted satellite traces onto genuine road geometries.
-            </p>
-          </div>
-
-          <div className="racing-card" style={{ padding: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Shield size={18} color="var(--parth-cyan)" />
-              <span className="font-orbitron" style={{ fontSize: '12px', fontWeight: 700 }}>
-                1 KM ADVANCE ALERTS
-              </span>
-            </div>
-            <p className="font-rajdhani" style={{ fontSize: '13px', color: '#B0B7C6' }}>
-              Advance turn warnings and lane guidance before crucial manoeuvres.
-            </p>
-          </div>
-        </div>
-
-        {/* CTA Button */}
-        <button
-          onClick={onProceed}
-          className="f1-btn-primary"
-          style={{ fontSize: '15px', padding: '14px 34px' }}
-        >
-          <span>ENTER MISSION BRIEF</span>
-          <ArrowRight size={18} />
-        </button>
       </div>
     </div>
   );
 }
-
