@@ -12,7 +12,7 @@ frontend/
 ├── src/
 │   ├── main.jsx                         # Application entrypoint & DOM mounting
 │   ├── App.jsx                          # Page routing & global telemetry state
-│   ├── index.css                        # F1 theme styling, CSS variables, racing car animations
+│   ├── index.css                        # F1 theme styling, CSS variables, transitions, animations
 │   │
 │   ├── data/
 │   │   ├── rawRoutes.json               # Extracted coordinates for all 5 GeoJSON routes
@@ -22,17 +22,15 @@ frontend/
 │   │   └── geoUtils.js                  # Haversine distance, bearing, NavIC noise, dead reckoning
 │   │
 │   └── components/
-│       ├── Header.jsx                   # Sticky racing navbar & live NavIC satellite lock indicator
-│       ├── WelcomePage.jsx              # Welcome view with diagonal animated F1 cars
-│       ├── BriefPage.jsx                # Official mission brief & technical pillars
-│       ├── RouteSelectionPage.jsx       # Origin/Destination selector & noise parameter tuning
-│       ├── NavigationDashboard.jsx      # Central telemetry cockpit controller
-│       ├── LeafletMap.jsx               # Dark-mode Leaflet interactive map with trace layers
+│       ├── Header.jsx                   # Sticky navbar with functional home link ("WHERE TO PARTH")
+│       ├── WelcomePage.jsx              # Opening homepage brief with crossing F1 cars & smooth transition
+│       ├── RouteSelectionPage.jsx       # Origin/Destination selector with "PROCEED TO NAVIGATION"
+│       ├── NavigationDashboard.jsx      # Navigation cockpit orchestrator
+│       ├── LeafletMap.jsx               # Leaflet map retaining user zoom during navigation start/progress
 │       ├── AdvanceAlertBanner.jsx       # ~1 km advance turn notification & lane guidance
 │       ├── SignalLossBanner.jsx         # Simulated GNSS dropout & Dead Reckoning alert
-│       ├── TelemetryHUD.jsx             # Digital speedometer, tachometer, heading & error metrics
-│       ├── SimulationControls.jsx       # Transport controls (Play/Pause/Step/Speed/Layer toggles)
-│       └── TechnicalExplainer.jsx       # Hackathon problem statement & criteria disclosure modal
+│       ├── TelemetryHUD.jsx             # Speedometer (hard-capped at 120 km/h), compass & progress
+│       └── SimulationControls.jsx       # Navigation transport with "Pause Navigation" / "Resume Navigation"
 ```
 
 ---
@@ -40,138 +38,91 @@ frontend/
 ## Detailed Component Specifications & Replacement Guide
 
 ### 1. Header (`frontend/src/components/Header.jsx`)
-- **Role:** Sticky top navigation bar. Displays the branding ("where to PARTH"), active page navigation tabs, live NavIC satellite constellation status (8 Satellites, L5/S-band, HDOP 1.08), and active route summary.
+- **Role:** Sticky top navigation bar. Contains the **"WHERE TO PARTH"** brand logo and title, configured as a functional navigation link across all application views to return directly to the opening homepage brief.
 - **Props:**
-  - `currentPage`: Current active view identifier (`'welcome' | 'brief' | 'routes' | 'cockpit'`).
-  - `setCurrentPage`: State updater function to switch views.
-  - `selectedRoute`: Currently active route object.
+  - `onNavigateHome`: Callback function invoked when clicking the logo to route the user back to the opening homepage brief.
 - **How to Replace / Modify:**
-  - To add brand logos, replace the `Navigation` icon container around line 43 with your `<img>` or SVG asset.
-  - To change page tabs, modify the `navItems` array at line 5.
-  - To bind live GPS/GNSS receiver telemetry instead of simulated satellites, update the status indicators at line 102.
+  - To change destination route when clicking the logo, adjust the `onNavigateHome` trigger or URL router in `App.jsx`.
+  - To customize the logo icon or banner typography, modify lines 30–42.
 
 ---
 
 ### 2. Welcome Page (`frontend/src/components/WelcomePage.jsx`)
-- **Role:** First user landing page. Presents the mandatory exact welcome copy:
-  `"Welcome to where to PARTH - Your smarter way to navigate through Life"`
-  Features two F1 racing cars that enter from the left and right diagonally across the screen simultaneously using hardware-accelerated CSS keyframes.
+- **Role:** Opening homepage brief view. Presents the approved brief copy and simultaneous diagonal crossing F1 racing cars with speed trails. Provides an interactive "PROCEED TO ROUTE SELECTION" button with a smooth state transition animation (and automatic 5.5s fallback progression).
 - **Props:**
-  - `onProceed`: Callback invoked when clicking "ENTER MISSION BRIEF" to transition to Phase 02.
+  - `onProceed`: Callback invoked to smoothly transition to the route selection interface.
 - **How to Replace / Modify:**
-  - To change car colors or SVGs, edit the `<F1CarSvg>` component props (`primaryColor`, `accentColor`, `glowColor`).
-  - To adjust the speed or trajectory of the crossing cars, modify `@keyframes carLeftToRight` and `@keyframes carRightToLeft` in `frontend/src/index.css`.
-  - The welcome message is located at line 144; preserve required hackathon copy if updating.
+  - To adjust the transition timing or cubic-bezier easing curve, modify `.view-transition-wrapper` and `.view-transition-exit` in `frontend/src/index.css`.
+  - The brief copy is located at lines 165–173; preserve required hackathon copy if updating.
 
 ---
 
-### 3. Brief Page (`frontend/src/components/BriefPage.jsx`)
-- **Role:** Presents the official hackathon problem statement context and approved copy:
-  `"Every journey deserves the right direction and every turn, the right guidance. Your destination is the goal, we'll help you find the way."`
-  `"Dw, Abhimanyu. This time, we'll get you out."`
-  Provides breakdown cards for NavIC noise modeling, OSRM snapping, 1 km advance warnings, and dead reckoning.
-- **Props:**
-  - `onProceed`: Navigates to Route Selection (`'routes'`).
-  - `onBack`: Returns to Welcome view (`'welcome'`).
-- **How to Replace / Modify:**
-  - The approved copy in the blockquote must remain unaltered.
-  - To add extra hackathon criteria or team member credits, append cards to the grid at line 90.
-
----
-
-### 4. Route Selection Page (`frontend/src/components/RouteSelectionPage.jsx`)
-- **Role:** Allows selection of start and destination points between Kengeri, Kanakapura, and Somapura. Displays route catalog cards (R-01 through R-05) with distance, estimated time, and turn count. Includes a noise parameter slider drawer and API toggle (`Standalone` vs `Local FastAPI`).
+### 3. Route Selection Page (`frontend/src/components/RouteSelectionPage.jsx`)
+- **Role:** Route dispatch interface allowing selection of start and destination points between Kengeri, Kanakapura, and Somapura, displaying distance, travel duration, and route preferences. Features a primary submission action labeled **"PROCEED TO NAVIGATION"**.
 - **Props:**
   - `selectedRouteId`: Active route ID string (`'R-01'`, `'R-02'`, etc.).
   - `setSelectedRouteId`: Callback to switch route ID.
-  - `noiseConfig`: Object containing jitter variance, drift bias, and dropout percentage.
-  - `setNoiseConfig`: Callback to tune noise parameters.
-  - `onLaunchSimulation`: Callback to switch into `'cockpit'` mode.
-  - `useBackendApi`: Boolean toggle between client-side simulation and FastAPI backend.
+  - `onLaunchSimulation`: Callback to initialize the active navigation cockpit.
 - **How to Replace / Modify:**
-  - To add custom GeoJSON files, add the file into `mock_data/` and re-run `node -e ...` or append to `rawRoutes.json`.
-  - To replace dropdowns with a search input or map click picker, replace the filter container at line 164.
+  - The submission button text is defined at line 134 (`PROCEED TO NAVIGATION`).
+  - To add route waypoints or custom route criteria, update `routesData.js`.
 
 ---
 
-### 5. Leaflet Map (`frontend/src/components/LeafletMap.jsx`)
-- **Role:** Interactive dark-mode map powered by Leaflet. Renders:
-  1. Cyan line: Ground truth reference path.
-  2. Neon Orange dashed line & dots: Simulated noisy satellite coordinates.
-  3. Red line: Snapped/matched road trace.
-  4. Animated F1 car marker dynamically rotated along its current heading.
-  5. Start & finish badges and numbered maneuver pins.
+### 4. Leaflet Map (`frontend/src/components/LeafletMap.jsx`)
+- **Role:** Interactive dark-mode navigation map powered by Leaflet. Renders the matched route (Deep Blue #0047AB), progressive observed noisy GPS trace (Neon Orange), start/finish pins, and animated heading-rotated vehicle marker. Legend reflects "Matched Active Route" (Deep Blue) and "Noisy GPS Signal" (Neon Orange).
+- **Zoom-Retaining Behavior:**
+  - Calling `fitBounds` is restricted strictly to initial route selection (`fittedRouteIdRef`).
+  - Dynamic additions of observed satellite coordinates and clicking **"START NAVIGATION"** do NOT re-fit bounds, completely preventing unexpected map zoom-out and ensuring the map retains the user's current zoom level.
 - **Props:**
   - `route`: Route data object with coordinate geometry.
-  - `noisyTrace`: Array of noisy GPS points.
+  - `noisyTrace`: Array of observed noisy GPS points.
   - `matchedTrace`: Array of snapped road coordinates.
   - `currentCoord`: Current `[lon, lat]` position of the vehicle.
   - `currentBearing`: Heading angle (0–360°) for car rotation.
-  - `layerVisibility`: Visibility toggles for the three trace layers.
-  - `activeAlertManeuver`: Currently approaching turn milestone.
+  - `activeAlertManeuver`: Approaching turn milestone.
 - **How to Replace / Modify:**
-  - **To switch map providers** (e.g. Mapbox GL JS, MapLibre, Google Maps):
-    Replace `LeafletMap.jsx` with your wrapper. Keep the same props (`route`, `currentCoord`, `currentBearing`, `layerVisibility`) to preserve complete compatibility with `NavigationDashboard.jsx`.
-  - **To change tile style**:
-    Modify the `L.tileLayer` URL on line 37 (e.g., standard OSM: `'https://tile.openstreetmap.org/{z}/{x}/{y}.png'`).
+  - To adjust initial zoom padding, modify line 124 (`padding: [50, 50]`).
+  - To swap tile providers, edit the `L.tileLayer` basemap URL at line 37.
 
 ---
 
-### 6. Advance Alert Banner (`frontend/src/components/AdvanceAlertBanner.jsx`)
-- **Role:** Automatically displays high-priority guidance when the vehicle approaches within ~1000m (1 km) of an upcoming turn or highway exit. Displays turn direction, remaining distance countdown, and lane-guidance recommendations.
+### 5. Telemetry HUD (`frontend/src/components/TelemetryHUD.jsx`)
+- **Role:** Racing-style dashboard displaying live speedometer velocity, tachometer RPM gauge, compass bearing, positioning error reduction, and journey progress.
+- **Hard Limit:**
+  - The speedometer velocity is strictly hard-capped using `Math.min(120, Math.max(0, Math.round(speedKmh)))`, guaranteeing the displayed speed never exceeds **120 km/h**.
 - **Props:**
-  - `activeAlert`: `{ maneuver, distanceMeters }` or `null` when clear.
+  - `speedKmh`, `bearing`, `errorMetrics`, `progressPercent`, `distanceCoveredKm`, `distanceRemainingKm`, `etaMinutes`.
 - **How to Replace / Modify:**
-  - To change alert distance threshold (e.g., from 1000m to 1500m or 500m), adjust the condition in `NavigationDashboard.jsx` (line 144).
-  - To replace icons with audio turn instructions or speech synthesis, add `new SpeechSynthesisUtterance()` inside an effect when `activeAlert` changes.
+  - To change velocity display units or threshold colors, edit lines 34–57.
 
 ---
 
-### 7. Signal Loss & Dead Reckoning Banner (`frontend/src/components/SignalLossBanner.jsx`)
-- **Role:** Triggers automatically during simulated GNSS coordinate dropouts (e.g. tunnels, dense urban tree canopies, multi-path blockage). Notifies user that Dead Reckoning has taken over using historical velocity and heading vectors.
+### 6. Simulation Controls (`frontend/src/components/SimulationControls.jsx`)
+- **Role:** Active navigation transport controls. Features:
+  - **"START NAVIGATION"** button before departure.
+  - **"Pause Navigation"** control that immediately toggles to **"Resume Navigation"** when clicked (and vice versa).
+  - **"RESTART NAVIGATION"** control to reset the journey back to origin.
+- **Props:**
+  - `hasStarted`: Boolean indicating if departure occurred.
+  - `isPaused`: Boolean indicating active pause state.
+  - `onStartNavigation`: Callback to commence navigation.
+  - `onTogglePause`: Callback to toggle between paused and active navigation.
+  - `onReset`: Callback to reset navigation.
+- **How to Replace / Modify:**
+  - To customize button icons or label wording, modify lines 36–50.
+
+---
+
+### 7. Advance Alert Banner (`frontend/src/components/AdvanceAlertBanner.jsx`)
+- **Role:** Monitors remaining route distance to upcoming turns and displays prominent advance guidance when within ~1000m (1 km).
+- **Props:**
+  - `activeAlert`: `{ maneuver, distanceMeters }` or `null`.
+
+---
+
+### 8. Signal Loss & Dead Reckoning Banner (`frontend/src/components/SignalLossBanner.jsx`)
+- **Role:** Triggers automatically during simulated GNSS satellite dropouts, notifying user that Dead Reckoning has taken over using velocity and heading vectors.
 - **Props:**
   - `isSignalLost`: Boolean indicating whether satellite fix is interrupted.
   - `deadReckoningData`: Object containing projected velocity, heading, and projected coordinates.
-- **How to Replace / Modify:**
-  - To enhance the dead-reckoning algorithm (e.g. Extended Kalman Filter), modify `estimateDeadReckoning()` in `geoUtils.js`.
-
----
-
-### 8. Telemetry HUD (`frontend/src/components/TelemetryHUD.jsx`)
-- **Role:** Racing-style dashboard displaying live digital speedometer (km/h), F1 tachometer RPM bars, compass bearing & cardinal orientation, positioning accuracy error comparison (Raw NavIC deviation vs Map-Matched road deviation), journey progress %, and remaining ETA.
-- **Props:**
-  - `speedKmh`, `bearing`, `currentCoord`, `errorMetrics`, `progressPercent`, `distanceCoveredKm`, `distanceRemainingKm`, `etaMinutes`.
-- **How to Replace / Modify:**
-  - To display additional telemetry fields (e.g. lateral G-force, altitude, or battery voltage), add cards into the grid at line 24.
-
----
-
-### 9. Simulation Controls (`frontend/src/components/SimulationControls.jsx`)
-- **Role:** Interactive transport bar with Play/Pause, Step Forward, Reset, Speed Multipliers (1x, 2x, 5x, 10x), layer visibility toggles (Ground Truth, NavIC Noise, Map Matched), and quick route switcher.
-- **Props:**
-  - `isPlaying`, `onTogglePlay`, `onReset`, `onStepForward`, `playbackSpeed`, `onChangeSpeed`, `layerVisibility`, `onToggleLayer`, `routes`, `selectedRouteId`, `onSelectRoute`.
-- **How to Replace / Modify:**
-  - To add keyboard shortcuts (e.g. Spacebar for play/pause, R for reset), attach an event listener in `NavigationDashboard.jsx` and pass the triggers to these props.
-
----
-
-### 10. Technical Explainer Modal (`frontend/src/components/TechnicalExplainer.jsx`)
-- **Role:** Provides transparent evaluation criteria disclosure for hackathon judges, explaining the distinction between simulated GNSS noise, OSRM road matching, and lane-level positioning.
-- **Props:**
-  - `isOpen`: Boolean modal state.
-  - `onClose`: Callback to dismiss modal.
-- **How to Replace / Modify:**
-  - To update hackathon answers or add references to research papers, edit the text blocks inside lines 38–60.
-
----
-
-### 11. Geographic Utilities (`frontend/src/utils/geoUtils.js`)
-- **Role:** Pure mathematical utility functions:
-  - `haversineDistance(pt1, pt2)`: Distance between two coordinates in meters.
-  - `calculateBearing(pt1, pt2)`: Direction angle in degrees (0–360°).
-  - `generateNavicNoise(coordinates, config)`: Generates Gaussian jitter, drift, and dropouts matching `noise_config.json`.
-  - `detectManeuvers(coordinates)`: Detects route turns > 25° and precomputes cumulative distance milestones.
-  - `estimateDeadReckoning(...)`: Projects vehicle location during satellite dropout.
-- **How to Replace / Modify:**
-  - If integrating an external navigation engine (e.g. Mapbox Directions API, Valhalla, GraphHopper), replace `detectManeuvers()` with the API's turn step payload.
-

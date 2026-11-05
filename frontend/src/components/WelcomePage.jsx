@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Zap, ArrowRight } from 'lucide-react';
 
 // Sleek Top-down / Isometric F1 Racing Car SVG
 function F1CarSvg({ primaryColor = '#FF0000', accentColor = '#FFFFFF', glowColor = 'rgba(255,0,0,0.8)' }) {
@@ -64,26 +64,39 @@ function F1CarSvg({ primaryColor = '#FF0000', accentColor = '#FFFFFF', glowColor
 }
 
 export default function WelcomePage({ onProceed }) {
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const handleProceed = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      onProceed();
+    }, 320);
+  };
+
   // Automatic progression after the introduction sequence
   useEffect(() => {
     const timer = setTimeout(() => {
-      onProceed();
-    }, 4500);
+      handleProceed();
+    }, 5500);
     return () => clearTimeout(timer);
-  }, [onProceed]);
+  }, []);
 
   return (
-    <div style={{
-      position: 'relative',
-      minHeight: 'calc(100vh - 70px)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-      padding: '40px 20px',
-      textAlign: 'center'
-    }}>
+    <div
+      className={isTransitioning ? 'view-transition-exit' : 'view-transition-wrapper'}
+      style={{
+        position: 'relative',
+        minHeight: 'calc(100vh - 70px)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        padding: '40px 20px',
+        textAlign: 'center'
+      }}
+    >
       {/* Background Racing Grid Lines */}
       <div style={{
         position: 'absolute',
@@ -152,7 +165,8 @@ export default function WelcomePage({ onProceed }) {
           borderRadius: '8px',
           padding: '28px 32px',
           textAlign: 'left',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)'
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
+          marginBottom: '28px'
         }}>
           <p className="font-rajdhani" style={{
             fontSize: 'clamp(18px, 2.4vw, 24px)',
@@ -173,6 +187,16 @@ export default function WelcomePage({ onProceed }) {
             Dw, Abhimanyu. This time, we'll get you out.
           </div>
         </div>
+
+        {/* Action Button to Proceed to Route Selection with Smooth Animation */}
+        <button
+          onClick={handleProceed}
+          className="f1-btn-orange"
+          style={{ padding: '12px 28px', fontSize: '13px' }}
+        >
+          <span>PROCEED TO ROUTE SELECTION</span>
+          <ArrowRight size={16} />
+        </button>
       </div>
     </div>
   );

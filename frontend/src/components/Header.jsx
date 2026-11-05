@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigation } from 'lucide-react';
 
-export default function Header() {
+export default function Header({ onNavigateHome }) {
   return (
     <header style={{
       borderBottom: '1px solid var(--parth-border)',
@@ -15,8 +15,26 @@ export default function Header() {
       alignItems: 'center',
       justifyContent: 'flex-start'
     }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+      {/* Functional Navigation Link to Opening Brief */}
+      <div
+        onClick={onNavigateHome}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onNavigateHome?.();
+          }
+        }}
+        title="Return to Homepage Brief"
+        className="header-brand-link"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }}
+      >
         <div style={{
           width: '36px',
           height: '36px',

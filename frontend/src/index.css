@@ -253,3 +253,51 @@ body {
   animation: alertPulse 1.2s infinite ease-in-out;
 }
 
+/* Header Brand Interactive Navigation Link */
+.header-brand-link {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.header-brand-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.header-brand-link:active {
+  transform: scale(0.98);
+}
+
+/* Smooth State Transition Animations */
+@keyframes viewFadeInSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes viewFadeOutSlideDown {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.view-transition-wrapper {
+  animation: viewFadeInSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  width: 100%;
+}
+
+.view-transition-exit {
+  animation: viewFadeOutSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

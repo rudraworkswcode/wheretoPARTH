@@ -11,29 +11,35 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--parth-black)' }}>
-      {/* Global Header */}
-      <Header />
+      {/* Global Header with functional logo routing back to initial homepage brief */}
+      <Header onNavigateHome={() => setCurrentPage('welcome')} />
 
-      {/* Main Consolidated Navigation Flow */}
-      <main style={{ flex: 1 }}>
+      {/* Main Consolidated Navigation Flow with Smooth State Transition Animation */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {currentPage === 'welcome' && (
-          <WelcomePage
-            onProceed={() => setCurrentPage('routes')}
-          />
+          <div key="welcome" className="view-transition-wrapper">
+            <WelcomePage
+              onProceed={() => setCurrentPage('routes')}
+            />
+          </div>
         )}
 
         {currentPage === 'routes' && (
-          <RouteSelectionPage
-            selectedRouteId={selectedRouteId}
-            setSelectedRouteId={setSelectedRouteId}
-            onLaunchSimulation={() => setCurrentPage('cockpit')}
-          />
+          <div key="routes" className="view-transition-wrapper">
+            <RouteSelectionPage
+              selectedRouteId={selectedRouteId}
+              setSelectedRouteId={setSelectedRouteId}
+              onLaunchSimulation={() => setCurrentPage('cockpit')}
+            />
+          </div>
         )}
 
         {currentPage === 'cockpit' && (
-          <NavigationDashboard
-            selectedRouteId={selectedRouteId}
-          />
+          <div key="cockpit" className="view-transition-wrapper">
+            <NavigationDashboard
+              selectedRouteId={selectedRouteId}
+            />
+          </div>
         )}
       </main>
     </div>

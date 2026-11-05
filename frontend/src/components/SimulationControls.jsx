@@ -1,9 +1,11 @@
 import React from 'react';
-import { Play, RotateCcw } from 'lucide-react';
+import { Play, Pause, RotateCcw } from 'lucide-react';
 
 export default function SimulationControls({
   hasStarted,
+  isPaused,
   onStartNavigation,
+  onTogglePause,
   onReset
 }) {
   return (
@@ -27,19 +29,37 @@ export default function SimulationControls({
             <span>START NAVIGATION</span>
           </button>
         ) : (
-          <button
-            onClick={onReset}
-            className="f1-btn-outline"
-            style={{ padding: '10px 20px', fontSize: '13px' }}
-          >
-            <RotateCcw size={15} />
-            <span>RESTART NAVIGATION</span>
-          </button>
+          <>
+            {/* Pause / Resume Navigation Control */}
+            <button
+              onClick={onTogglePause}
+              className={isPaused ? "f1-btn-orange" : "f1-btn-outline"}
+              style={{
+                padding: '10px 22px',
+                fontSize: '13px',
+                borderColor: isPaused ? 'var(--parth-neon-orange)' : 'var(--parth-border)'
+              }}
+            >
+              {isPaused ? <Play size={15} /> : <Pause size={15} />}
+              <span>{isPaused ? 'Resume Navigation' : 'Pause Navigation'}</span>
+            </button>
+
+            {/* Restart Button */}
+            <button
+              onClick={onReset}
+              className="f1-btn-outline"
+              style={{ padding: '10px 18px', fontSize: '13px' }}
+              title="Restart journey from start point"
+            >
+              <RotateCcw size={15} />
+              <span>RESTART NAVIGATION</span>
+            </button>
+          </>
         )}
       </div>
 
       <div className="font-rajdhani" style={{ fontSize: '13px', color: '#8E95A5' }}>
-        Status: {hasStarted ? 'Active Navigation In Progress' : 'Ready — Awaiting Start Navigation Trigger'}
+        Status: {!hasStarted ? 'Ready — Awaiting Start Navigation Trigger' : isPaused ? 'Navigation Paused' : 'Active Navigation In Progress'}
       </div>
     </div>
   );

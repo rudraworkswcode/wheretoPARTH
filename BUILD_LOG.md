@@ -145,3 +145,31 @@ All 11 corrective sections specified in STRUCTURE/Updates.md were systematically
 - Frontend build (`npm run build --prefix frontend`): Succeeded in 7.38s (0 errors, 0 warnings).
 - Backend verification (`python -m py_compile main.py`): Succeeded with zero syntax errors.
 ================================================================================
+
+[PHASE 6: UI/UX REFINEMENTS & CORRECTIONS]
+- Top-Left Header Navigation:
+  * Modified Header.jsx and App.jsx: The "WHERE TO PARTH" brand logo and text now act as an interactive navigation link across all views with hover/active states, routing directly back to the initial opening homepage brief (currentPage = 'welcome').
+- Smooth State Transition Animation:
+  * Added view transition keyframe animations in index.css: viewFadeInSlideUp and viewFadeOutSlideDown with cubic-bezier(0.16, 1, 0.3, 1) easing.
+  * Updated WelcomePage.jsx and App.jsx: When transitioning from the opening homepage brief to the route selection interface, a smooth state transition animation executes seamlessly.
+- Route Selection Button Text:
+  * Modified RouteSelectionPage.jsx: Updated submission button copy from "PROCEED TO COCKPIT" to "PROCEED TO NAVIGATION".
+- Pause Navigation Control:
+  * Modified SimulationControls.jsx and NavigationDashboard.jsx: Introduced an interactive "Pause Navigation" control during active navigation. When clicked, it pauses navigation progression and immediately toggles to "Resume Navigation". When clicked again, it resumes navigation from the exact paused waypoint.
+- Map Zoom-Out Behavior Prevention:
+  * Refactored LeafletMap.jsx: Decoupled initial route initialization from dynamic progressive noisyTrace updates. fitBounds is now executed only once on initial route mount/selection using fittedRouteIdRef. When "START NAVIGATION" is clicked and new noisy points arrive, the map zoom level is untouched, ensuring the map strictly retains the user's current zoom level.
+- Technical Criteria Element Removal:
+  * Modified NavigationDashboard.jsx: Completely removed the "TECHNICAL CRITERIA" UI button and modal trigger from the top-right corner of the navigation interface.
+- Speedometer Telemetry Hard Cap:
+  * Updated TelemetryHUD.jsx and NavigationDashboard.jsx: Applied a strict hard limit enforcing that the displayed velocity telemetry variable never exceeds 120 km/h under any coordinate displacement condition (Math.min(120, ...)).
+- Build Verification:
+  * Executed `npm run build`: Vite build completed cleanly in 1.89s with 0 errors.
+
+[PHASE 7: STYLING & TERMINOLOGY REFINEMENTS]
+- Map Route Line Color:
+  * Modified LeafletMap.jsx: Changed the solid matched active route line color from orange/red to deep blue (`#0047AB`).
+  * Updated corresponding color indicator in the map legend overlay to deep blue (`#0047AB`).
+- Legend Terminology:
+  * Modified LeafletMap.jsx: Updated the bottom-left legend label from "Simulated NavIC Noise" to "Noisy GPS Signal".
+- Build Verification:
+  * Executed `npm run build`: Production build succeeded in 2.12s with 0 errors.

@@ -131,7 +131,7 @@ export default function RouteSelectionPage({
           className="f1-btn-primary"
           style={{ width: '100%', fontSize: '15px', padding: '14px 28px' }}
         >
-          <span>PROCEED TO COCKPIT</span>
+          <span>PROCEED TO NAVIGATION</span>
           <ArrowRight size={18} />
         </button>
       </div>
