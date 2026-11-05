@@ -173,42 +173,44 @@ body {
 }
 
 /* F1 Cars Crossing Diagonally Animations for Welcome Page */
+/* Left car enters from extreme bottom-left corner and travels diagonally to extreme top-right corner */
 @keyframes carLeftToRight {
   0% {
-    transform: translate(-120vw, 40vh) rotate(-22deg) scale(0.85);
+    transform: translate(-65vw, 45vh) rotate(-32deg) scale(0.9);
     opacity: 0;
   }
 
-  15% {
+  8% {
     opacity: 1;
   }
 
-  85% {
+  92% {
     opacity: 1;
   }
 
   100% {
-    transform: translate(120vw, -45vh) rotate(-22deg) scale(1.15);
+    transform: translate(65vw, -45vh) rotate(-32deg) scale(1.15);
     opacity: 0;
   }
 }
 
+/* Right car enters from extreme bottom-right corner and travels diagonally to extreme top-left corner */
 @keyframes carRightToLeft {
   0% {
-    transform: translate(120vw, 45vh) rotate(22deg) scale(0.85);
+    transform: translate(65vw, 45vh) rotate(32deg) scale(0.9);
     opacity: 0;
   }
 
-  15% {
+  8% {
     opacity: 1;
   }
 
-  85% {
+  92% {
     opacity: 1;
   }
 
   100% {
-    transform: translate(-120vw, -40vh) rotate(22deg) scale(1.15);
+    transform: translate(-65vw, -45vh) rotate(32deg) scale(1.15);
     opacity: 0;
   }
 }
@@ -219,10 +221,12 @@ body {
   left: 50%;
   width: 260px;
   height: 80px;
-  animation: carLeftToRight 5.5s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+  margin-top: -40px;
+  margin-left: -130px;
+  animation: carLeftToRight 5.2s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
   pointer-events: none;
   z-index: 5;
-  filter: drop-shadow(0 0 16px rgba(255, 0, 0, 0.8));
+  filter: drop-shadow(0 0 16px rgba(255, 0, 0, 0.85));
 }
 
 .f1-car-diagonal-right {
@@ -231,11 +235,13 @@ body {
   left: 50%;
   width: 260px;
   height: 80px;
-  animation: carRightToLeft 5.5s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+  margin-top: -40px;
+  margin-left: -130px;
+  animation: carRightToLeft 5.2s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
   animation-delay: 0.15s;
   pointer-events: none;
   z-index: 5;
-  filter: drop-shadow(0 0 16px rgba(255, 95, 31, 0.8));
+  filter: drop-shadow(0 0 16px rgba(255, 95, 31, 0.85));
 }
 
 /* Leaflet Container Styling */

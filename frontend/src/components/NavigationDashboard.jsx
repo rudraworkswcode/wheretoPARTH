@@ -4,6 +4,7 @@ import TelemetryHUD from './TelemetryHUD';
 import AdvanceAlertBanner from './AdvanceAlertBanner';
 import SignalLossBanner from './SignalLossBanner';
 import SimulationControls from './SimulationControls';
+import TechnicalExplainer from './TechnicalExplainer';
 import { ROUTE_LIST } from '../data/routesData';
 import {
   generateNoisyPoint,
@@ -11,12 +12,13 @@ import {
   haversineDistance,
   estimateDeadReckoning
 } from '../utils/geoUtils';
+import { HelpCircle } from 'lucide-react';
 
 export default function NavigationDashboard({ selectedRouteId }) {
   const currentRoute = ROUTE_LIST.find(r => r.id === selectedRouteId) || ROUTE_LIST[0];
   const coords = currentRoute.coordinates;
 
-  // Navigation State
+  // Navigation State: manual start required, stopped initially
   const [hasStarted, setHasStarted] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -27,6 +29,7 @@ export default function NavigationDashboard({ selectedRouteId }) {
   const [isSignalLost, setIsSignalLost] = useState(false);
   const [deadReckoningData, setDeadReckoningData] = useState(null);
   const [isFinished, setIsFinished] = useState(false);
+  const [showExplainer, setShowExplainer] = useState(false);
   const [liveSpeed, setLiveSpeed] = useState(0);
 
   const LOOKAHEAD_WINDOW = 6;
@@ -57,15 +60,9 @@ export default function NavigationDashboard({ selectedRouteId }) {
     lastStepTimeRef.current = Date.now();
   };
 
-  // Handle Pause / Resume Navigation Trigger
   const handleTogglePause = () => {
-    setIsPaused(prev => {
-      const next = !prev;
-      if (!next) {
-        lastStepTimeRef.current = Date.now();
-      }
-      return next;
-    });
+    setIsPaused(prev => !prev);
+    lastStepTimeRef.current = Date.now();
   };
 
   const handleResetNavigation = () => {
@@ -90,19 +87,20 @@ export default function NavigationDashboard({ selectedRouteId }) {
     const c2 = coords[Math.min(currentIndex + 1, coords.length - 1)];
     const segmentMeters = haversineDistance(c1, c2);
 
-    // Target vehicle speed: ~45 km/h = 12.5 m/s (slower near turns, hard capped at 120 km/h)
-    const targetSpeedKmh = activeAlert && activeAlert.distanceMeters < 350 ? 30 : 50;
+    // Target velocity: realistic road speed (30 km/h near turns, 52 km/h cruise)
+    const targetSpeedKmh = activeAlert && activeAlert.distanceMeters < 350 ? 30 : 52;
     const targetSpeedMps = (targetSpeedKmh * 1000) / 3600;
-    const stepDurationMs = Math.max(350, Math.min(1800, Math.round((segmentMeters / targetSpeedMps) * 1000)));
+    const stepDurationMs = Math.max(400, Math.min(2200, Math.round((segmentMeters / targetSpeedMps) * 1000)));
 
     const timer = setTimeout(() => {
       const now = Date.now();
       const elapsedSec = (now - lastStepTimeRef.current) / 1000;
       lastStepTimeRef.current = now;
 
-      // Real velocity derived from actual coordinate displacement, hard-capped at 120 km/h
-      const rawKmh = elapsedSec > 0 ? Math.round((segmentMeters / elapsedSec) * 3.6) : targetSpeedKmh;
-      const cappedKmh = Math.min(120, Math.max(0, rawKmh));
+      // Real velocity derived from actual coordinate displacement and elapsed time
+      const actualKmh = elapsedSec > 0 ? Math.round((segmentMeters / elapsedSec) * 3.6) : targetSpeedKmh;
+      // Hard limit velocity to maximum 120 km/h
+      const cappedKmh = Math.min(120, Math.max(0, actualKmh));
       setLiveSpeed(cappedKmh);
 
       setCurrentIndex(prev => {
@@ -174,32 +172,54 @@ export default function NavigationDashboard({ selectedRouteId }) {
   const progressPercent = Math.round((currentIndex / (coords.length - 1)) * 100);
   const distCoveredKm = Number(((currentRoute.totalDistanceKm * progressPercent) / 100).toFixed(2));
   const distRemainingKm = Number((currentRoute.totalDistanceKm - distCoveredKm).toFixed(2));
-  const displayedSpeed = hasStarted && !isPaused ? Math.min(120, liveSpeed) : 0;
-  const etaMin = Math.max(0, Math.round((distRemainingKm / (displayedSpeed || 45)) * 60));
+  const etaMin = Math.max(0, Math.round((distRemainingKm / (liveSpeed || 45)) * 60));
+
+  const displayedSpeed = isPaused ? 0 : hasStarted ? Math.min(120, liveSpeed || 48) : 0;
 
   return (
     <div style={{
       maxWidth: '1380px',
       margin: '0 auto',
-      padding: '20px 24px 40px 24px',
+      padding: '16px 20px 24px 20px',
       minHeight: 'calc(100vh - 80px)'
     }}>
-      {/* Top Breadcrumb Header (Technical criteria element removed) */}
+      {/* Top Header Row with Route info on Left, START/STOP Navigation on Extreme Right */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '12px',
-        marginBottom: '16px'
+        marginBottom: '12px'
       }}>
+        {/* Left: Sector / Route Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className="font-orbitron" style={{ fontSize: '11px', color: 'var(--parth-red)', letterSpacing: '1px' }}>
             NAVIGATION COCKPIT //
           </span>
-          <span className="font-rajdhani" style={{ fontSize: '15px', fontWeight: 700, color: '#FFF' }}>
+          <span className="font-rajdhani" style={{ fontSize: '16px', fontWeight: 700, color: '#FFF' }}>
             {currentRoute.from} → {currentRoute.to}
           </span>
+        </div>
+
+        {/* Right: Controls placed upfront on extreme right so no scrolling is needed */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <SimulationControls
+            hasStarted={hasStarted}
+            isPaused={isPaused}
+            onStartNavigation={handleStartNavigation}
+            onTogglePause={handleTogglePause}
+            onReset={handleResetNavigation}
+          />
+
+          <button
+            onClick={() => setShowExplainer(true)}
+            className="f1-btn-outline"
+            style={{ padding: '6px 12px', fontSize: '11px' }}
+          >
+            <HelpCircle size={13} color="var(--parth-neon-orange)" />
+            <span>CRITERIA</span>
+          </button>
         </div>
       </div>
 
@@ -207,11 +227,11 @@ export default function NavigationDashboard({ selectedRouteId }) {
       <SignalLossBanner isSignalLost={isSignalLost} deadReckoningData={deadReckoningData} />
 
       {/* 1 KM Advance Maneuver Notification Banner */}
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '10px' }}>
         <AdvanceAlertBanner activeAlert={activeAlert} />
       </div>
 
-      {/* Cockpit Telemetry Cards (Speed hard limited to <= 120 km/h) */}
+      {/* Single Line Compact Cockpit Telemetry HUD */}
       <TelemetryHUD
         speedKmh={displayedSpeed}
         bearing={bearing}
@@ -232,8 +252,8 @@ export default function NavigationDashboard({ selectedRouteId }) {
           background: 'linear-gradient(135deg, rgba(255, 95, 31, 0.25) 0%, #161920 100%)',
           border: '2px solid var(--parth-neon-orange)',
           borderRadius: '8px',
-          padding: '16px 20px',
-          marginBottom: '16px',
+          padding: '12px 16px',
+          marginBottom: '10px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -241,18 +261,18 @@ export default function NavigationDashboard({ selectedRouteId }) {
           gap: '12px'
         }}>
           <div>
-            <div className="font-orbitron" style={{ fontSize: '16px', fontWeight: 900, color: 'var(--parth-neon-orange)' }}>
+            <div className="font-orbitron" style={{ fontSize: '14px', fontWeight: 900, color: 'var(--parth-neon-orange)' }}>
               DESTINATION REACHED
             </div>
-            <div className="font-rajdhani" style={{ fontSize: '14px', color: '#FFF' }}>
+            <div className="font-rajdhani" style={{ fontSize: '13px', color: '#FFF' }}>
               Vehicle successfully navigated {currentRoute.totalDistanceKm} km to {currentRoute.to}.
             </div>
           </div>
         </div>
       )}
 
-      {/* Dark Styled Leaflet Map (Retains current zoom level on start navigation) */}
-      <div style={{ height: '520px', width: '100%' }}>
+      {/* Dark Styled Leaflet Map */}
+      <div style={{ height: 'calc(100vh - 280px)', minHeight: '440px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
         <LeafletMap
           route={currentRoute}
           noisyTrace={observedNoisyTrace}
@@ -263,14 +283,8 @@ export default function NavigationDashboard({ selectedRouteId }) {
         />
       </div>
 
-      {/* Manual Start, Pause / Resume Navigation Controls */}
-      <SimulationControls
-        hasStarted={hasStarted}
-        isPaused={isPaused}
-        onStartNavigation={handleStartNavigation}
-        onTogglePause={handleTogglePause}
-        onReset={handleResetNavigation}
-      />
+      {/* Technical Criteria Modal */}
+      <TechnicalExplainer isOpen={showExplainer} onClose={() => setShowExplainer(false)} />
     </div>
   );
 }
