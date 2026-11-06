@@ -301,3 +301,18 @@ body {
   animation: viewFadeOutSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+
+/* Traffic Transition Parallel Flows */
+@keyframes trafficFlowDown {
+  0% { transform: translateY(-120px); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(115vh); opacity: 0; }
+}
+
+@keyframes trafficFlowUp {
+  0% { transform: translateY(120px); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(-115vh); opacity: 0; }
+}

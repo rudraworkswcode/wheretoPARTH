@@ -1,7 +1,15 @@
 import React from 'react';
-import { Navigation } from 'lucide-react';
+import { Navigation, Compass, FileText, Map, Activity } from 'lucide-react';
 
-export default function Header({ onNavigateHome }) {
+export default function Header({ currentPage = 'welcome', onNavigate, onNavigateHome }) {
+  const handleNav = (page) => {
+    if (onNavigate) {
+      onNavigate(page);
+    } else if (onNavigateHome) {
+      onNavigateHome();
+    }
+  };
+
   return (
     <header style={{
       borderBottom: '1px solid var(--parth-border)',
@@ -10,22 +18,24 @@ export default function Header({ onNavigateHome }) {
       position: 'sticky',
       top: 0,
       zIndex: 1000,
-      padding: '14px 24px',
+      padding: '12px 24px',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'flex-start'
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '12px'
     }}>
-      {/* Functional Navigation Link to Opening Brief */}
+      {/* Brand Logo & Title */}
       <div
-        onClick={onNavigateHome}
+        onClick={() => handleNav('welcome')}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            onNavigateHome?.();
+            handleNav('welcome');
           }
         }}
-        title="Return to Homepage Brief"
+        title="Return to Intro Animation"
         className="header-brand-link"
         style={{
           display: 'flex',
@@ -58,6 +68,78 @@ export default function Header({ onNavigateHome }) {
           </div>
         </div>
       </div>
+
+      {/* Navigation Links for Quick Access */}
+      <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={() => handleNav('welcome')}
+          className="f1-tab-btn"
+          style={{
+            background: currentPage === 'welcome' ? 'rgba(255, 0, 0, 0.15)' : 'transparent',
+            border: `1px solid ${currentPage === 'welcome' ? 'var(--parth-red)' : 'transparent'}`,
+            color: currentPage === 'welcome' ? 'var(--parth-red)' : '#8E95A5',
+            padding: '6px 14px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontFamily: "'Orbitron', sans-serif",
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <Compass size={14} />
+          <span>INTRO ANIMATION</span>
+        </button>
+
+        <button
+          onClick={() => handleNav('brief')}
+          className="f1-tab-btn"
+          style={{
+            background: currentPage === 'brief' ? 'rgba(255, 95, 31, 0.15)' : 'transparent',
+            border: `1px solid ${currentPage === 'brief' ? 'var(--parth-neon-orange)' : 'transparent'}`,
+            color: currentPage === 'brief' ? 'var(--parth-neon-orange)' : '#8E95A5',
+            padding: '6px 14px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontFamily: "'Orbitron', sans-serif",
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <FileText size={14} />
+          <span>MISSION BRIEF</span>
+        </button>
+
+        <button
+          onClick={() => handleNav('routes')}
+          className="f1-tab-btn"
+          style={{
+            background: currentPage === 'routes' ? 'rgba(255, 0, 0, 0.15)' : 'transparent',
+            border: `1px solid ${currentPage === 'routes' ? 'var(--parth-red)' : 'transparent'}`,
+            color: currentPage === 'routes' ? 'var(--parth-white)' : '#8E95A5',
+            padding: '6px 14px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontFamily: "'Orbitron', sans-serif",
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <Map size={14} />
+          <span>ROUTE SELECTOR</span>
+        </button>
+      </nav>
     </header>
   );
 }
