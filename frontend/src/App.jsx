@@ -14,51 +14,58 @@ export default function App() {
     setIsLoading(true);
     setApiError(null);
 
-    try {
-      const response = await fetch('/api/simulate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          start_lon: requestPayload.start_lon,
-          start_lat: requestPayload.start_lat,
-          end_lon: requestPayload.end_lon,
-          end_lat: requestPayload.end_lat,
-        }),
-      });
+    const endpoints = ['/api/simulate', 'http://127.0.0.1:8080/api/simulate'];
 
-      if (!response.ok) {
-        let errDetail = {
-          error: `HTTP Error ${response.status}`,
-          message: 'Failed to generate simulation route from local OSRM service.'
-        };
-        try {
-          const errData = await response.json();
-          if (errData.detail) {
-            if (typeof errData.detail === 'object') {
-              errDetail = errData.detail;
-            } else {
-              errDetail.message = String(errData.detail);
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            start_lon: requestPayload.start_lon,
+            start_lat: requestPayload.start_lat,
+            end_lon: requestPayload.end_lon,
+            end_lat: requestPayload.end_lat,
+          }),
+        });
+
+        if (!response.ok) {
+          let errDetail = {
+            error: `HTTP Error ${response.status}`,
+            message: 'Failed to generate simulation route from local OSRM service.'
+          };
+          try {
+            const errData = await response.json();
+            if (errData.detail) {
+              if (typeof errData.detail === 'object') {
+                errDetail = errData.detail;
+              } else {
+                errDetail.message = String(errData.detail);
+              }
             }
-          }
-        } catch (e) { }
-        setApiError(errDetail);
-        setIsLoading(false);
-        return;
-      }
+          } catch (e) { }
+          setApiError(errDetail);
+          setIsLoading(false);
+          return;
+        }
 
-      const data = await response.json();
-      setSimulationData(data);
-      setIsLoading(false);
-      setCurrentPage('cockpit');
-    } catch (err) {
-      setApiError({
-        error: 'BACKEND_CONNECTION_FAILED',
-        message: 'Unable to connect to local navigation backend via /api/simulate. Ensure the FastAPI server and local OSRM Docker container are active.'
-      });
-      setIsLoading(false);
+        const data = await response.json();
+        setSimulationData(data);
+        setIsLoading(false);
+        setCurrentPage('cockpit');
+        return;
+      } catch (err) {
+        continue;
+      }
     }
+
+    setApiError({
+      error: 'BACKEND_CONNECTION_FAILED',
+      message: 'Unable to connect to local navigation backend via /api/simulate or http://127.0.0.1:8080. Ensure the FastAPI server is running.'
+    });
+    setIsLoading(false);
   };
 
   return (
