@@ -3,9 +3,8 @@ import LeafletMap from './LeafletMap';
 import TelemetryHUD from './TelemetryHUD';
 import AdvanceAlertBanner from './AdvanceAlertBanner';
 import SignalLossBanner from './SignalLossBanner';
-import SimulationControls from './SimulationControls';
 import { haversineDistance, calculateBearing } from '../utils/geoUtils';
-import { Activity, ShieldCheck, ShieldAlert, Cpu } from 'lucide-react';
+import { Activity, ShieldCheck, ShieldAlert, Cpu, Play, Pause, RotateCcw } from 'lucide-react';
 
 export default function NavigationDashboard({ simulationData, onBackToSelection }) {
   if (!simulationData) {
@@ -239,29 +238,89 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
       padding: '20px 24px 40px 24px',
       minHeight: 'calc(100vh - 80px)'
     }}>
-      {/* Top Header / Position Source Status */}
+      {/* Top Header / Position Source Status & Integrated Action Controls */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '12px',
-        marginBottom: '16px'
+        marginBottom: '16px',
+        padding: '12px 18px',
+        background: 'var(--parth-surface)',
+        border: '1px solid var(--parth-border)',
+        borderRadius: '8px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span className="font-orbitron" style={{ fontSize: '12px', color: 'var(--parth-red)', letterSpacing: '1px' }}>
+          <span className="font-orbitron" style={{ fontSize: '13px', color: 'var(--parth-red)', letterSpacing: '1px' }}>
             NAVIGATION COCKPIT //
           </span>
           {renderSourceBadge()}
         </div>
 
-        <button
-          onClick={onBackToSelection}
-          className="f1-btn-outline"
-          style={{ padding: '6px 14px', fontSize: '11px' }}
-        >
-          CHANGE ROUTE
-        </button>
+        {/* Top-Level Concise Navigation Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {!hasStarted ? (
+            <button
+              onClick={handleStartNavigation}
+              className="f1-btn-primary"
+              style={{
+                padding: '8px 20px',
+                fontSize: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Play size={14} />
+              <span>START NAVIGATION</span>
+            </button>
+          ) : (
+            <>
+              {/* Prominent Top Pause / Resume Navigation Control */}
+              <button
+                onClick={handleTogglePause}
+                className={isPaused ? "f1-btn-orange" : "f1-btn-outline"}
+                style={{
+                  padding: '8px 18px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderColor: isPaused ? 'var(--parth-neon-orange)' : 'var(--parth-border)'
+                }}
+              >
+                {isPaused ? <Play size={14} /> : <Pause size={14} />}
+                <span>{isPaused ? 'Resume Navigation' : 'Pause Navigation'}</span>
+              </button>
+
+              {/* Top Restart Action */}
+              <button
+                onClick={handleResetNavigation}
+                className="f1-btn-outline"
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Restart navigation from beginning"
+              >
+                <RotateCcw size={13} />
+                <span>RESTART</span>
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={onBackToSelection}
+            className="f1-btn-outline"
+            style={{ padding: '8px 14px', fontSize: '12px', borderColor: 'rgba(255,255,255,0.2)' }}
+          >
+            CHANGE ROUTE
+          </button>
+        </div>
       </div>
 
       {/* Signal Loss Dead Reckoning Banner */}
@@ -316,7 +375,7 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
       )}
 
       {/* Leaflet Navigation Map */}
-      <div style={{ height: '520px', width: '100%' }}>
+      <div style={{ height: '540px', width: '100%' }}>
         <LeafletMap
           referenceTrace={refCoords}
           noisyTrace={observations.slice(0, currentIndex + 6).map(o => o.coord)}
@@ -328,15 +387,6 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
           turnSteps={turnSteps}
         />
       </div>
-
-      {/* Transport Controls */}
-      <SimulationControls
-        hasStarted={hasStarted}
-        isPaused={isPaused}
-        onStartNavigation={handleStartNavigation}
-        onTogglePause={handleTogglePause}
-        onReset={handleResetNavigation}
-      />
     </div>
   );
 }
