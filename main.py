@@ -16,7 +16,7 @@ import httpx
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, status
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
@@ -59,13 +59,11 @@ class ProgressiveUpdateResponse(BaseModel):
 
 app = FastAPI(title="NavIC Navigation Service")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ---------------------------------------------------------------------------
+# Static file serving - FastAPI serves the React build (2-tier architecture)
+# ---------------------------------------------------------------------------
+if FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="static")
 
 # ---------------------------------------------------------------------------
 # Core Logic
@@ -263,4 +261,4 @@ def get_progressive_lookahead(
     )
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
