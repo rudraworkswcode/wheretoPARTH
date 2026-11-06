@@ -4,7 +4,7 @@ import TelemetryHUD from './TelemetryHUD';
 import AdvanceAlertBanner from './AdvanceAlertBanner';
 import SignalLossBanner from './SignalLossBanner';
 import { haversineDistance, calculateBearing, detectManeuvers } from '../utils/geoUtils';
-import { Activity, ShieldCheck, ShieldAlert, Cpu, Play, Pause, RotateCcw } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Cpu, Play, Pause, RotateCcw } from 'lucide-react';
 
 export default function NavigationDashboard({ simulationData, onBackToSelection }) {
   if (!simulationData) {
@@ -48,6 +48,38 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
 
   const lastStepTimeRef = useRef(Date.now());
 
+  // Metrics declared upfront to avoid Temporal Dead Zone (TDZ)
+  const totalDistanceMeters = Number(reference_route?.distance_meters || 0);
+  const totalDistanceKm = Number((totalDistanceMeters / 1000).toFixed(2));
+  const progressPercent = observations.length > 1 ? Math.round((currentIndex / (observations.length - 1)) * 100) : 0;
+  const distCoveredKm = Number(((totalDistanceKm * progressPercent) / 100).toFixed(2));
+  const distRemainingKm = Number(Math.max(0, totalDistanceKm - distCoveredKm).toFixed(2));
+  const displayedSpeed = hasStarted && !isPaused ? Math.min(120, liveSpeed) : 0;
+  const etaMin = Math.max(0, Math.round((distRemainingKm / (displayedSpeed || 45)) * 60));
+
+  const curObs = observations[currentIndex] || {};
+  const measuredAccuracy = curObs?.accuracy_meters || 15.5;
+
+  // Determine Active Vehicle Coordinate based on Position Source
+  const activePositionCoord = () => {
+    if (active_position_source === 'osrm_match' && matching.matched_positions && matching.matched_positions[currentIndex]) {
+      return matching.matched_positions[currentIndex];
+    }
+    if (kalman_fallback.used && kalman_fallback.coordinates && kalman_fallback.coordinates[currentIndex]) {
+      return kalman_fallback.coordinates[currentIndex];
+    }
+    return observations[currentIndex]?.coord || refCoords[0] || [77.47, 12.90];
+  };
+
+  const currentCoord = activePositionCoord();
+
+  // Heading calculation from successive active positions
+  const nextIdx = Math.min(currentIndex + 1, Math.max(0, observations.length - 1));
+  const nextCoord = active_position_source === 'osrm_match' && matching.matched_positions?.[nextIdx]
+    ? matching.matched_positions[nextIdx]
+    : observations[nextIdx]?.coord || currentCoord;
+  const bearing = calculateBearing(currentCoord, nextCoord);
+
   // Handle Manual Start Navigation Trigger
   const handleStartNavigation = () => {
     setHasStarted(true);
@@ -82,9 +114,9 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
   useEffect(() => {
     if (!hasStarted || isPaused || isFinished || observations.length === 0) return;
 
-    const currentObs = observations[currentIndex];
-    const nextObs = observations[Math.min(currentIndex + 1, observations.length - 1)];
-    const segmentMeters = haversineDistance(currentObs.coord, nextObs.coord);
+    const currentObservation = observations[currentIndex];
+    const nextObservation = observations[Math.min(currentIndex + 1, observations.length - 1)];
+    const segmentMeters = haversineDistance(currentObservation?.coord, nextObservation?.coord);
 
     // Target driving speed (~45 km/h, slowed down before upcoming turns)
     const targetSpeedKmh = activeAlert && activeAlert.distanceMeters < 350 ? 30 : 48;
@@ -101,43 +133,23 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
       setLiveSpeed(cappedKmh);
 
       setCurrentIndex(prev => {
-        const nextIdx = prev + 1;
-        if (nextIdx >= observations.length - 1) {
+        const next = prev + 1;
+        if (next >= observations.length - 1) {
           setIsFinished(true);
           setLiveSpeed(0);
           return observations.length - 1;
         }
-        return nextIdx;
+        return next;
       });
     }, stepDurationMs);
 
     return () => clearTimeout(timer);
   }, [hasStarted, isPaused, currentIndex, isFinished, observations, activeAlert]);
 
-  // Determine Active Vehicle Coordinate based on Position Source
-  const activePositionCoord = () => {
-    if (active_position_source === 'osrm_match' && matching.matched_positions && matching.matched_positions[currentIndex]) {
-      return matching.matched_positions[currentIndex];
-    }
-    if (kalman_fallback.used && kalman_fallback.coordinates && kalman_fallback.coordinates[currentIndex]) {
-      return kalman_fallback.coordinates[currentIndex];
-    }
-    return observations[currentIndex]?.coord || refCoords[0];
-  };
-
-  const currentCoord = activePositionCoord();
-
-  // Heading calculation from successive active positions
-  const nextIdx = Math.min(currentIndex + 1, observations.length - 1);
-  const nextCoord = active_position_source === 'osrm_match' && matching.matched_positions?.[nextIdx]
-    ? matching.matched_positions[nextIdx]
-    : observations[nextIdx]?.coord || currentCoord;
-  const bearing = calculateBearing(currentCoord, nextCoord);
-
   // Monitor Turn Steps & Road Curvature for ~1 km Advance Alerts & Lane Guidance
   useEffect(() => {
     // Current traveled distance along route in meters
-    const currentDist = (currentIndex / Math.max(1, observations.length - 1)) * totalDistanceKm * 1000;
+    const currentDist = (currentIndex / Math.max(1, observations.length - 1)) * totalDistanceMeters;
 
     // 1. Check OSRM turnSteps first
     let nextStep = null;
@@ -213,18 +225,7 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
     }
 
     setActiveAlert(null);
-  }, [currentCoord, currentIndex, observations.length, totalDistanceKm, turnSteps, geometricManeuvers]);
-
-  // Telemetry Metrics
-  const curObs = observations[currentIndex];
-  const measuredAccuracy = curObs?.accuracy_meters || 15.5;
-
-  const totalDistanceKm = Number((reference_route.distance_meters / 1000).toFixed(2));
-  const progressPercent = observations.length > 1 ? Math.round((currentIndex / (observations.length - 1)) * 100) : 0;
-  const distCoveredKm = Number(((totalDistanceKm * progressPercent) / 100).toFixed(2));
-  const distRemainingKm = Number(Math.max(0, totalDistanceKm - distCoveredKm).toFixed(2));
-  const displayedSpeed = hasStarted && !isPaused ? Math.min(120, liveSpeed) : 0;
-  const etaMin = Math.max(0, Math.round((distRemainingKm / (displayedSpeed || 45)) * 60));
+  }, [currentCoord, currentIndex, observations.length, totalDistanceMeters, turnSteps, geometricManeuvers]);
 
   // Determine Status Badge & Colors
   const renderSourceBadge = () => {
@@ -328,37 +329,33 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
             </button>
           ) : (
             <>
-              {/* Prominent Top Pause / Resume Navigation Control */}
               <button
                 onClick={handleTogglePause}
-                className={isPaused ? "f1-btn-orange" : "f1-btn-outline"}
+                className={isPaused ? "f1-btn-primary" : "f1-btn-orange"}
                 style={{
                   padding: '8px 18px',
                   fontSize: '12px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  borderColor: isPaused ? 'var(--parth-neon-orange)' : 'var(--parth-border)'
+                  gap: '6px'
                 }}
               >
                 {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                <span>{isPaused ? 'Resume Navigation' : 'Pause Navigation'}</span>
+                <span>{isPaused ? 'RESUME' : 'PAUSE'}</span>
               </button>
 
-              {/* Top Restart Action */}
               <button
                 onClick={handleResetNavigation}
                 className="f1-btn-outline"
                 style={{
-                  padding: '8px 14px',
+                  padding: '8px 16px',
                   fontSize: '12px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px'
                 }}
-                title="Restart navigation from beginning"
               >
-                <RotateCcw size={13} />
+                <RotateCcw size={14} />
                 <span>RESTART</span>
               </button>
             </>
@@ -367,9 +364,12 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
           <button
             onClick={onBackToSelection}
             className="f1-btn-outline"
-            style={{ padding: '8px 14px', fontSize: '12px', borderColor: 'rgba(255,255,255,0.2)' }}
+            style={{
+              padding: '8px 16px',
+              fontSize: '12px'
+            }}
           >
-            CHANGE ROUTE
+            ← CHANGE ROUTE
           </button>
         </div>
       </div>
@@ -377,7 +377,7 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
       {/* Signal Loss Dead Reckoning Banner */}
       <SignalLossBanner isSignalLost={isSignalLost} deadReckoningData={null} />
 
-      {/* 1 KM Advance Maneuver Notification Banner */}
+      {/* 1 KM Advance Maneuver Notification Banner & Lane Guidance */}
       <div style={{ marginBottom: '16px' }}>
         <AdvanceAlertBanner activeAlert={activeAlert} />
       </div>

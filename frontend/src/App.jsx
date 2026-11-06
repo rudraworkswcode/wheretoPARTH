@@ -1,8 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, Component } from 'react';
 import Header from './components/Header';
 import WelcomePage from './components/WelcomePage';
 import RouteSelectionPage from './components/RouteSelectionPage';
 import NavigationDashboard from './components/NavigationDashboard';
+import { AlertCircle, RotateCcw } from 'lucide-react';
+
+// Robust Error Boundary to guarantee no blank screen can ever happen
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("PARTH Navigation Error caught by Boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          maxWidth: '720px',
+          margin: '60px auto',
+          padding: '28px',
+          background: 'rgba(22, 25, 32, 0.95)',
+          border: '2px solid var(--parth-red)',
+          borderRadius: '8px',
+          color: '#FFF',
+          textAlign: 'center',
+          boxShadow: '0 0 30px rgba(255, 0, 0, 0.3)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+            <AlertCircle size={48} color="var(--parth-red)" />
+          </div>
+          <h2 className="font-orbitron" style={{ fontSize: '20px', fontWeight: 900, color: 'var(--parth-red)', marginBottom: '8px' }}>
+            NAVIGATION TELEMETRY ERROR
+          </h2>
+          <p className="font-rajdhani" style={{ fontSize: '15px', color: '#B0B7C6', marginBottom: '20px' }}>
+            An unexpected error occurred while rendering the navigation cockpit:
+            <br />
+            <code style={{ color: 'var(--parth-neon-orange)', fontSize: '13px', background: '#0D0F14', padding: '4px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '8px' }}>
+              {this.state.error?.message || 'Rendering exception'}
+            </code>
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              if (this.props.onReset) this.props.onReset();
+            }}
+            className="f1-btn-primary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 24px',
+              fontSize: '13px'
+            }}
+          >
+            <RotateCcw size={16} />
+            <span>RETURN TO ROUTE SELECTION</span>
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('welcome');
@@ -75,33 +142,35 @@ export default function App() {
 
       {/* Main Consolidated Navigation Flow with Smooth State Transition Animation */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {currentPage === 'welcome' && (
-          <div key="welcome" className="view-transition-wrapper">
-            <WelcomePage
-              onProceed={() => setCurrentPage('routes')}
-            />
-          </div>
-        )}
+        <ErrorBoundary onReset={() => setCurrentPage('routes')}>
+          {currentPage === 'welcome' && (
+            <div key="welcome" className="view-transition-wrapper">
+              <WelcomePage
+                onProceed={() => setCurrentPage('routes')}
+              />
+            </div>
+          )}
 
-        {currentPage === 'routes' && (
-          <div key="routes" className="view-transition-wrapper">
-            <RouteSelectionPage
-              onLaunchSimulation={handleLaunchSimulation}
-              isLoading={isLoading}
-              apiError={apiError}
-              onClearError={() => setApiError(null)}
-            />
-          </div>
-        )}
+          {currentPage === 'routes' && (
+            <div key="routes" className="view-transition-wrapper">
+              <RouteSelectionPage
+                onLaunchSimulation={handleLaunchSimulation}
+                isLoading={isLoading}
+                apiError={apiError}
+                onClearError={() => setApiError(null)}
+              />
+            </div>
+          )}
 
-        {currentPage === 'cockpit' && (
-          <div key="cockpit" className="view-transition-wrapper">
-            <NavigationDashboard
-              simulationData={simulationData}
-              onBackToSelection={() => setCurrentPage('routes')}
-            />
-          </div>
-        )}
+          {currentPage === 'cockpit' && (
+            <div key="cockpit" className="view-transition-wrapper">
+              <NavigationDashboard
+                simulationData={simulationData}
+                onBackToSelection={() => setCurrentPage('routes')}
+              />
+            </div>
+          )}
+        </ErrorBoundary>
       </main>
     </div>
   );
