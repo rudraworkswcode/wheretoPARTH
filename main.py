@@ -72,10 +72,14 @@ class DynamicRouteRequest(BaseModel):
 
 
 class TurnStep(BaseModel):
+    name: Optional[str] = "Road"
     instruction: str
     distance_meters: float
     duration_seconds: float
     location: List[float]  # [lon, lat]
+    type: Optional[str] = "turn"
+    modifier: Optional[str] = None
+    lane_guidance: Optional[str] = "Stay in Lane"
 
 
 class ReferenceRoute(BaseModel):
@@ -272,12 +276,25 @@ async def fetch_base_route(
             if s_name:
                 instruction += f" onto {s_name}"
 
+            m_mod_str = str(m_mod) if m_mod else None
+            m_mod_lower = m_mod_str.lower() if m_mod_str else ""
+            if "right" in m_mod_lower:
+                lane_rec = "Shift to Right Turn Lane" if "sharp" in m_mod_lower else "Stay in Right Lane"
+            elif "left" in m_mod_lower:
+                lane_rec = "Shift to Left Turn Lane" if "sharp" in m_mod_lower else "Stay in Left Lane"
+            else:
+                lane_rec = "Maintain Cruising Lane"
+
             parsed_steps.append(
                 TurnStep(
+                    name=s_name,
                     instruction=instruction,
                     distance_meters=float(s.get("distance", 0.0)),
                     duration_seconds=float(s.get("duration", 0.0)),
                     location=[float(m_loc[0]), float(m_loc[1])] if len(m_loc) >= 2 else [0.0, 0.0],
+                    type=str(m_type),
+                    modifier=m_mod_str,
+                    lane_guidance=lane_rec,
                 )
             )
 

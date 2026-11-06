@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import LeafletMap from './LeafletMap';
 import TelemetryHUD from './TelemetryHUD';
 import AdvanceAlertBanner from './AdvanceAlertBanner';
 import SignalLossBanner from './SignalLossBanner';
-import { haversineDistance, calculateBearing } from '../utils/geoUtils';
+import { haversineDistance, calculateBearing, detectManeuvers } from '../utils/geoUtils';
 import { Activity, ShieldCheck, ShieldAlert, Cpu, Play, Pause, RotateCcw } from 'lucide-react';
 
 export default function NavigationDashboard({ simulationData, onBackToSelection }) {
@@ -31,6 +31,11 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
 
   const refCoords = reference_route.geometry?.coordinates || [];
   const turnSteps = reference_route.steps || [];
+
+  // Compute geometric road & lane maneuvers from route curvature as robust baseline
+  const geometricManeuvers = useMemo(() => {
+    return detectManeuvers(refCoords);
+  }, [refCoords]);
 
   // Active Navigation State
   const [hasStarted, setHasStarted] = useState(false);
@@ -129,40 +134,86 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
     : observations[nextIdx]?.coord || currentCoord;
   const bearing = calculateBearing(currentCoord, nextCoord);
 
-  // Monitor Turn Steps for ~1 km Advance Alerts (Using OSRM /route steps)
+  // Monitor Turn Steps & Road Curvature for ~1 km Advance Alerts & Lane Guidance
   useEffect(() => {
-    if (!turnSteps || turnSteps.length === 0) {
-      setActiveAlert(null);
-      return;
-    }
+    // Current traveled distance along route in meters
+    const currentDist = (currentIndex / Math.max(1, observations.length - 1)) * totalDistanceKm * 1000;
 
-    // Find next upcoming turn maneuver ahead of current position
+    // 1. Check OSRM turnSteps first
     let nextStep = null;
     let minDistance = Infinity;
 
-    for (const step of turnSteps) {
-      if (step.location && step.location.length >= 2 && step.type !== 'arrive') {
-        const d = haversineDistance(currentCoord, step.location);
-        if (d > 20 && d < minDistance) {
-          minDistance = d;
-          nextStep = step;
+    if (turnSteps && turnSteps.length > 0) {
+      for (const step of turnSteps) {
+        if (step.location && step.location.length >= 2 && step.type !== 'arrive') {
+          const d = haversineDistance(currentCoord, step.location);
+          if (d > 20 && d < minDistance) {
+            minDistance = d;
+            nextStep = step;
+          }
         }
       }
     }
 
     if (nextStep && minDistance <= 1000) {
+      const modifier = (nextStep.modifier || '').toLowerCase();
+      let laneGuidance = nextStep.lane_guidance || 'Maintain Cruising Lane';
+      let turnType = nextStep.type || 'turn';
+      let laneIndex = 1;
+
+      if (modifier.includes('sharp right')) {
+        turnType = 'sharp_right';
+        laneGuidance = 'Shift to Right Turn Lane';
+        laneIndex = 2;
+      } else if (modifier.includes('right')) {
+        turnType = 'right';
+        laneGuidance = 'Stay in Right Lane';
+        laneIndex = 2;
+      } else if (modifier.includes('sharp left')) {
+        turnType = 'sharp_left';
+        laneGuidance = 'Shift to Left Turn Lane';
+        laneIndex = 0;
+      } else if (modifier.includes('left')) {
+        turnType = 'left';
+        laneGuidance = 'Stay in Left Lane';
+        laneIndex = 0;
+      } else if (modifier.includes('straight') || modifier.includes('continue')) {
+        turnType = 'straight';
+        laneGuidance = 'Keep Center Cruising Lane';
+        laneIndex = 1;
+      }
+
       setActiveAlert({
         maneuver: {
-          instruction: nextStep.instruction || `Turn ahead onto ${nextStep.name}`,
-          turnType: nextStep.modifier ? nextStep.modifier.replace(' ', '_') : 'turn',
-          laneGuidance: nextStep.modifier?.includes('right') ? 'Stay in Right Lane' : 'Stay in Left Lane'
+          instruction: nextStep.instruction || `Turn ahead onto ${nextStep.name || 'Road'}`,
+          turnType,
+          laneGuidance,
+          recommendedLane: laneIndex === 0 ? 'Left Lane' : laneIndex === 2 ? 'Right Lane' : 'Center Lane',
+          laneIndex,
+          totalLanes: 3,
         },
         distanceMeters: Math.round(minDistance)
       });
-    } else {
-      setActiveAlert(null);
+      return;
     }
-  }, [currentCoord, turnSteps]);
+
+    // 2. Reliable fallback: Geometric Curvature Maneuvers from detectManeuvers
+    if (geometricManeuvers && geometricManeuvers.length > 0) {
+      const upcoming = geometricManeuvers.find(m => m.distanceFromStart > currentDist + 15);
+      if (upcoming) {
+        const distToManeuver = Math.round(upcoming.distanceFromStart - currentDist);
+        if (distToManeuver <= 1000 && distToManeuver > 0) {
+          setActiveAlert({
+            maneuver: upcoming,
+            distanceMeters: distToManeuver
+          });
+          return;
+        }
+      }
+    }
+
+    setActiveAlert(null);
+  }, [currentCoord, currentIndex, observations.length, totalDistanceKm, turnSteps, geometricManeuvers]);
 
   // Telemetry Metrics
   const curObs = observations[currentIndex];
@@ -385,6 +436,7 @@ export default function NavigationDashboard({ simulationData, onBackToSelection 
           currentBearing={bearing}
           activePositionSource={active_position_source}
           turnSteps={turnSteps}
+          maneuvers={geometricManeuvers}
         />
       </div>
     </div>

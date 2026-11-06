@@ -9,7 +9,8 @@ export default function LeafletMap({
   currentCoord = null,
   currentBearing = 0,
   activePositionSource = 'osrm_match',
-  turnSteps = []
+  turnSteps = [],
+  maneuvers = []
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -120,17 +121,19 @@ export default function LeafletMap({
     layers.startMarker = L.marker(refLatLngs[0], { icon: startIcon }).addTo(map);
     layers.endMarker = L.marker(refLatLngs[refLatLngs.length - 1], { icon: endIcon }).addTo(map);
 
-    // 5. Maneuver Step Markers
-    if (turnSteps && turnSteps.length > 0) {
-      turnSteps.forEach((st, idx) => {
-        if (st.location && st.location.length >= 2 && st.type !== 'arrive') {
+    // 5. Maneuver Step Markers & Lane Navigation Checkpoints
+    const activeSteps = (turnSteps && turnSteps.length > 0) ? turnSteps : (maneuvers || []);
+    if (activeSteps && activeSteps.length > 0) {
+      activeSteps.forEach((st, idx) => {
+        const loc = st.location || st.coord;
+        if (loc && loc.length >= 2 && st.type !== 'arrive' && st.turnType !== 'destination') {
           const mIcon = L.divIcon({
             className: 'turn-icon-marker',
-            html: `<div style="background:#000000; border:1px solid #FF5F1F; color:#FF5F1F; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; font-family:Orbitron;">${idx + 1}</div>`,
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+            html: `<div style="background:#000000; border:1.5px solid #FF5F1F; color:#FF5F1F; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; font-family:Orbitron; box-shadow:0 0 8px rgba(255,95,31,0.6);">${idx + 1}</div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11]
           });
-          const marker = L.marker([st.location[1], st.location[0]], { icon: mIcon }).addTo(map);
+          const marker = L.marker([loc[1], loc[0]], { icon: mIcon }).addTo(map);
           layers.stepMarkers.push(marker);
         }
       });
@@ -142,7 +145,7 @@ export default function LeafletMap({
       map.fitBounds(L.latLngBounds(refLatLngs), { padding: [50, 50] });
       fittedRouteHashRef.current = routeHash;
     }
-  }, [referenceTrace, matchedTrace, kalmanTrace, turnSteps]);
+  }, [referenceTrace, matchedTrace, kalmanTrace, turnSteps, maneuvers]);
 
   // Dynamic Noisy Satellite Trace Updates (Does NOT re-fit bounds)
   useEffect(() => {
