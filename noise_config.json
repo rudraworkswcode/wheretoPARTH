@@ -1,7 +1,7 @@
 {
-  "noise_std_meters": 6.0,
-  "drift_bias_lat_meters": 0.05,
-  "drift_bias_lon_meters": -0.05,
+  "latitude_variance_deg2": 0.00000001,
+  "longitude_variance_deg2": 0.00000001,
   "dropout_percentage": 0.02,
-  "average_dropout_duration": 2
+  "simulated_speed_mps": 12.5,
+  "confidence_threshold": 0.65
 }

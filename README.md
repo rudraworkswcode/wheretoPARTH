@@ -1,386 +1,217 @@
-# where to PARTH
+# where to PARTH — Lane-Level Navigation Pipeline
 
 > **Every journey deserves the right direction and every turn, the right guidance. Your destination is the goal, we'll help you find the way.**
 >
-> **Don't worry, Abhimanyu. This time, we'll get you out.**
+> **Dw, Abhimanyu. This time, we'll get you out.**
 
-**where to PARTH** is a software-based navigation prototype developed for the 24-hour hackathon problem statement:
-
-**Lane-Level Vehicle Navigation Using NavIC Satellite Signals****Problem Statement ID:** 
-
-Problem Statement ID: DL-SJBIT-HK26-GOVP009
-
-The project explores how inaccurate vehicle-position data can be simulated, matched against road geometry and used as a foundation for more precise route guidance.
+**where to PARTH** is an intelligent navigation system built for the 24-hour hackathon problem statement:
+- **Problem Statement:** Lane-Level Vehicle Navigation Using NavIC Satellite Signals
+- **Problem Statement ID:** DL-SJBIT-HK26-GOVP009
 
 ---
 
-## Project Overview
+## Architecture & Navigation Pipeline
 
-Navigation systems can experience positioning errors that result in incorrect road identification and late turn notifications.
-
-where to PARTH aims to address this problem through a software-based navigation workflow.
-
-The current backend:
-1. Loads predefined GeoJSON route geometry.
-2. Generates simulated GPS noise.
-3. Sends noisy coordinates to the OSRM Map Matching API.
-4. Returns the noisy trace and matched or fallback geometry.
-
-The intended complete product will also provide vehicle simulation, route visualisation and advance navigation alerts approximately 1 km before upcoming manoeuvres.
-
-**Important:** The current implementation simulates positioning noise. It does not receive live NavIC satellite measurements. OSRM map matching alone does not guarantee lane-level positioning.
-
----
-
-## Current Features
-
-- FastAPI backend.
-- Dynamic GeoJSON route discovery.
-- GeoJSON LineString extraction.
-- Gaussian GPS coordinate noise.
-- Cumulative positional drift.
-- Simulated coordinate dropout.
-- OSRM Map Matching API integration.
-- Matched GeoJSON response.
-- No-match fallback handling.
-- API error handling for missing routes and OSRM failures.
-
-## Technology Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React (planned) |
-| JavaScript Runtime | Node.js (role TBD) |
-| Backend | FastAPI |
-| Routing / Matching | OSRM API |
-| Route Geometry | GeoJSON |
-| Route Editor | GeoJSON.io |
-| Numerical Processing | NumPy |
-| HTTP Requests | HTTPX |
-| Data Models | Pydantic |
-| ASGI Server | Uvicorn |
-
-### Optional UI Resources
-
-- Motion Primitives
-- 21st.dev
-- Realtime Colors
-
-These are optional resources and have not been established as project dependencies.
-
----
-
-## Repository Structure
+The project replaces static route corridors with a locally hosted OpenStreetMap road graph and OSRM routing engine:
 
 ```text
-wheretoPARTH/
-│
-├── main.py
-│   └── FastAPI application
-│       ├── Route listing
-│       ├── GeoJSON processing
-│       ├── GPS noise generation
-│       └── OSRM map matching
-│
-├── noise_config.json
-│   └── GPS noise configuration
-│
-├── requirements.txt
-│   └── Python dependencies
-│
-├── mock_data/
-│   ├── route_exit_A.geojson
-│   └── return_route.geojson
-│
-├── README.md
-│
-├── PRD.md
-├── Architecture.md
-├── Tech-stack.md
-├── User-Flow.md
-├── Criteria.md
-├── Sample Data.md
-└── COMPONENTS.md
+[Frontend: Departure & Destination Coordinates]
+                     │
+                     ▼
+             [POST /api/simulate]
+                     │
+                     ▼
+       [Local OSRM /route Engine]
+  (Queries local OSM road graph for driving reference corridor)
+                     │
+                     ▼
+     [Calibrated NavIC GNSS Simulation]
+  (1e-8 deg² variance, ~15.5m error, timestamps, observed bearings)
+                     │
+                     ▼
+       [Local OSRM /match Engine]
+  (Overlapping windows ≤40 coords, radiuses, timestamps, bearings)
+                     │
+           ┌─────────┴─────────┐
+      [MATCHED]        [LOW_CONFIDENCE / NO_MATCH]
+           │                         │
+           ▼                         ▼
+   [OSRM Snapped Road]     [4D Metric Kalman Filter Fallback]
+           │                         │
+           └─────────┬───────────────┘
+                     │
+                     ▼
+ [Truthful Visualisation: Leaflet Map, Telemetry HUD, Advance Alerts]
 ```
 
-**Note:** The React frontend structure described in COMPONENTS.md is planned. The current repository does not yet contain the frontend directory.
+1. **Dynamic Reference Route**: The user selects or inputs origin and destination coordinates. The backend queries the local OSRM routing service (`/route`) using the prepared OpenStreetMap road network.
+2. **Calibrated GNSS Noise**: Simulates satellite positioning observations along the reference route with calibrated degree-squared variance ($10^{-8} \text{ deg}^2$, standard deviation $0.0001^\circ \approx 11.1\text{m}$ in latitude, converted to horizontal accuracy $\approx 15.5\text{m}$), strictly monotonic Unix timestamps, and observed movement bearings.
+3. **OSRM Map Matching**: Sends ordered observations to local OSRM `/match` in sequential overlapping windows of at most 40 coordinates to maintain local topological continuity.
+4. **Kalman Fallback**: When matching fails (`NO_MATCH`) or returns a low-confidence result (`LOW_CONFIDENCE`), a 4D constant-velocity Kalman filter ($[x, y, v_x, v_y]$) computes metric-frame smoothed positions. This estimate is explicitly labeled as `kalman_estimate` and is **never** represented as an OSRM road match.
+5. **Truthful UI State**: The frontend Leaflet map renders the reference corridor, raw noisy GPS fixes, deep blue matched route (only when matched), and amber Kalman estimate (only when fallback is active), with telemetry reflecting measured accuracy.
 
 ---
 
-## Getting Started
+## Technical Disclosures & Limitations
 
-### Prerequisites
+- **Reference Route vs Ground Truth**: The route returned by OSRM `/route` is a reference driving corridor for simulation. It is not real-world ground truth or proof of a vehicle's actual path.
+- **Simulated GNSS vs Live NavIC**: The project models satellite positioning noise through mathematical Gaussian jitter, drift, and dropouts. It does not interface with raw RF hardware receivers.
+- **Road Snapping vs Lane Positioning**: OSRM map-matching snaps coordinates to digital road centerlines. True lane-level guidance depends on detailed road width and lane metadata in the underlying map data. When lane attributes are absent, road-level guidance is safely provided.
 
-- Python 3.10 or newer.
-- pip.
-- Internet connectivity for the public OSRM demo service.
+---
 
-### Step 1 — Clone the Repository
+## Local OSM and OSRM Infrastructure Setup
 
+The backend connects directly to a locally hosted OSRM service. No public OSRM demo server is used.
+
+### 1. Download Regional OpenStreetMap PBF
+Download a regional `.osm.pbf` file (e.g., `karnataka-latest.osm.pbf` or `southern-zone-latest.osm.pbf`) from [Geofabrik Asia / India](https://download.geofabrik.de/asia/india.html):
 ```bash
-git clone https://github.com/rudraworkswcode/wheretoPARTH.git
-
-cd wheretoPARTH
+mkdir -p osrm-data
+# Place your downloaded PBF file into osrm-data/:
+# Example: osrm-data/karnataka-latest.osm.pbf
 ```
 
-### Step 2 — Create a Virtual Environment
+### 2. Prepare OSRM Graph (One-Time Preparation)
+Run the reproducible graph preparation script using the pinned OSRM Docker image (`ghcr.io/project-osrm/osrm-backend:v5.27.1`):
 
-**Windows:**
+**Linux / macOS / WSL:**
+```bash
+chmod +x ./scripts/prepare_osrm.sh
+./scripts/prepare_osrm.sh ./osrm-data karnataka-latest.osm.pbf
+```
 
+**Windows PowerShell:**
 ```powershell
-python -m venv .venv
-
-.venv\Scripts\Activate.ps1
+.\scripts\prepare_osrm.ps1 -DataDir .\osrm-data -PbfName karnataka-latest.osm.pbf
 ```
 
-**Linux / macOS:**
+This runs:
+1. `osrm-extract -p /opt/car.lua /data/<region>.osm.pbf`
+2. `osrm-partition /data/<region>.osrm`
+3. `osrm-customize /data/<region>.osrm`
 
+### 3. Run with Docker Compose
+Start the complete stack (OSRM service, FastAPI backend, React frontend):
 ```bash
-python3 -m venv .venv
-
-source .venv/bin/activate
+docker compose up
 ```
+- **OSRM Service**: `http://localhost:5000`
+- **FastAPI Backend**: `http://localhost:8000` (Interactive docs: `http://localhost:8000/docs`)
+- **React Frontend**: `http://localhost:5173`
 
-### Step 3 — Install Dependencies
+---
 
+## Manual / Local Development Setup
+
+### Backend (FastAPI)
 ```bash
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # Or venv\Scripts\activate on Windows
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Run backend (points to local OSRM at http://127.0.0.1:5000)
+export OSRM_BASE_URL=http://127.0.0.1:5000
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Step 4 — Start the FastAPI Backend
-
+### Frontend (React + Vite)
 ```bash
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+cd frontend
+npm install
+npm run dev
 ```
-
-Alternatively:
-
-```bash
-python main.py
-```
-
-### Backend URLs
-
-| Resource | URL |
-|---|---|
-| API | http://127.0.0.1:8000 |
-| Swagger Documentation | http://127.0.0.1:8000/docs |
-| OpenAPI Schema | http://127.0.0.1:8000/openapi.json |
 
 ---
 
-## API Reference
+## API Contract
 
-### 1. GET `/api/routes`
-
-Returns available GeoJSON route files from the `mock_data/` directory.
-
-Example:
-
+### Health Check
 ```http
-GET http://127.0.0.1:8000/api/routes
+GET /health
 ```
-
-Example response:
-
+**Response:**
 ```json
-[
-  {
-    "route_id": "route_exit_A.geojson",
-    "start_point": [77.59129, 12.97159],
-    "end_point": [77.6005, 12.9765]
-  }
-]
+{
+  "service": "where to PARTH Navigation Backend",
+  "status": "online",
+  "osrm_endpoint": "http://127.0.0.1:5000",
+  "osrm_status": "healthy"
+}
 ```
 
-Coordinates follow GeoJSON order:
-
-`[longitude, latitude]`
-
-### 2. GET `/api/simulate/{route_id}`
-
-Generates simulated GPS noise and requests OSRM map matching.
-
-Example:
-
+### Dynamic Simulation Pipeline
 ```http
-GET http://127.0.0.1:8000/api/simulate/route_exit_A
+POST /api/simulate
+Content-Type: application/json
 ```
 
-The route identifier can be supplied with or without the `.geojson` extension.
+**Request Body:**
+```json
+{
+  "start_lon": 77.471314,
+  "start_lat": 12.905128,
+  "end_lon": 77.526668,
+  "end_lat": 12.856989
+}
+```
 
-### Response Fields
-
-| Field | Description |
-|---|---|
-| status | Request status |
-| route_id | Selected route file |
-| raw_trace | Simulated noisy coordinates |
-| corrected_trace | Matched or fallback GeoJSON Feature |
-
-### Match Status
-
-The `corrected_trace.properties.match_status` field indicates the result:
-
-- `Ok` — OSRM returned a matched geometry.
-- `NoMatch` — OSRM did not return a match and the backend generated a fallback geometry.
-
-The fallback must not be presented as verified road-matched geometry.
-
----
-
-## Route Catalogue
-
-The project uses three named geographical locations.
-
-| Location | Initial Role |
-|---|---|
-| Kengeri | Starting point |
-| Kanakapura | Starting point |
-| Somapura | Destination |
-
-### Supplied Routes
-
-| Route ID | From | To | Preference |
-|---|---|---|---|
-| R-01 | Kengeri | Kanakapura | Faster |
-| R-02 | Kanakapura | Kengeri | Normal |
-| R-03 | Somapura | Kengeri | Normal |
-| R-04 | Somapura | Kanakapura | Normal |
-| R-05 | Kengeri | Kanakapura | Slower |
-
-The current sample GeoJSON files are generic route examples. Their coordinates have not yet been verified as the actual Kengeri, Kanakapura and Somapura journeys.
-
-Verified route geometry must be supplied before using these files for real-world navigation demonstrations.
-
----
-
-## Planned Website Experience
-
-The intended user journey consists of five stages.
-
-### 1. Welcome Page
-
-Displays:
-
-"Welcome to where to PARTH - Your smarter way to navigate through Life"
-
-Visual requirements:
-- F1-inspired design.
-- Two F1 cars.
-- One car approaching from the left.
-- Another approaching from the right.
-- Both cars racing diagonally across the screen simultaneously.
-
-### 2. Brief Page
-
-Displays:
-
-"Every journey deserves the right direction and every turn, the right guidance. Your destination is the goal, we'll help you find the way.
-
-Dw, Abhimanyu. This time, we'll get you out."
-
-### 3. Location Selection
-
-Allows users to choose a starting point and destination from the supported route catalogue.
-
-### 4. Route Display
-
-Displays the selected route and relevant geographical information.
-
-### 5. Navigation
-
-The intended navigation experience includes:
-- Vehicle simulation.
-- Position updates.
-- Upcoming manoeuvre detection.
-- Advance notifications approximately 1 km before turns.
-
-These frontend and navigation features are planned rather than implemented in the current repository snapshot.
+**Response Body:**
+```json
+{
+  "status": "MATCHED",
+  "reference_route": {
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [[77.471314, 12.905128], ...]
+    },
+    "distance_meters": 8412.5,
+    "duration_seconds": 634.0,
+    "steps": [
+      {
+        "name": "Kanakapura Road",
+        "instruction": "Turn left onto Kanakapura Road",
+        "distance_meters": 450.0,
+        "duration_seconds": 36.0,
+        "type": "turn",
+        "modifier": "left",
+        "location": [77.4812, 12.8914]
+      }
+    ]
+  },
+  "observations": [
+    {
+      "index": 0,
+      "coord": [77.471289, 12.905141],
+      "timestamp": 1790000000,
+      "accuracy_meters": 15.5,
+      "bearing": 135.2
+    }
+  ],
+  "raw_trace": [[77.471289, 12.905141], ...],
+  "matching": {
+    "status": "Ok",
+    "confidence": 0.88,
+    "geometry": { "type": "LineString", "coordinates": [...] },
+    "matched_positions": [[77.471314, 12.905128], ...]
+  },
+  "kalman_fallback": {
+    "used": false,
+    "coordinates": [],
+    "uncertainty_meters": null
+  },
+  "active_position_source": "osrm_match"
+}
+```
 
 ---
 
-## Design Guidelines
+## Testing
 
-### Colour Palette
-
-| Colour | Hex |
-|---|---|
-| Red | `#FF0000` |
-| Neon Orange | `#FF5F1F` |
-| White | `#FFFFFF` |
-| Black | `#000000` |
-
-### Design Direction
-
-The interface follows an F1-inspired racing aesthetic with strong contrast, racing visuals and clear navigation information.
-
----
-
-## Known Issues and Limitations
-
-### 1. Noise Configuration Mismatch
-
-`main.py` reads `drift_bias`, but `noise_config.json` contains `drift_bias_lat` and `drift_bias_lon`.
-
-The backend therefore falls back to its default drift value unless the configuration or code is aligned.
-
-The configuration also contains `average_dropout_duration`, which the current implementation does not read.
-
-### 2. OSRM Fallback
-
-When OSRM cannot match a trace, the backend returns sampled noisy coordinates as fallback geometry.
-
-This is not a corrected road trace.
-
-### 3. Public OSRM Service
-
-The project currently uses the public OSRM demo service.
-
-Its availability and usage limits are outside the project's control.
-
-### 4. NavIC Integration
-
-The current backend simulates positioning errors. It does not process live NavIC satellite measurements.
-
-### 5. Lane-Level Positioning
-
-OSRM map matching does not automatically provide lane-level accuracy.
-
-Lane-specific guidance depends on the availability of appropriate lane-level map data and additional processing.
-
-### 6. Frontend and Vehicle Navigation
-
-The React frontend, map display, vehicle animation, manoeuvre detection and 1 km alerts are not implemented in the current repository snapshot.
-
----
-
-## Project Documentation
-
-The following documents describe the project:
-
-| File | Purpose |
-|---|---|
-| PRD.md | Product requirements and scope |
-| Architecture.md | Existing backend and planned architecture |
-| Tech-stack.md | Technologies and responsibilities |
-| User-Flow.md | Website and navigation flow |
-| Criteria.md | Problem coverage and evaluation checklist |
-| Sample Data.md | Locations and route catalogue |
-| COMPONENTS.md | Frontend component directory guide |
-
----
-
-## Problem Statement
-
-**Problem Statement Name:** Lane-Level Vehicle Navigation Using NavIC Satellite Signals
-
-**Problem Statement ID:** DL-SJBIT-HK26-GOVP009
-
-The objective is to build a software-based intelligent navigation platform that improves vehicle positioning and route guidance using publicly available location data and digital road maps.
-
-where to PARTH explores this through simulated positioning errors, OSRM map matching and a planned navigation interface.
-
-**Every journey deserves the right direction and every turn, the right guidance.**
-
-**Don't worry, Abhimanyu. This time, we'll get you out.**
+Run unit and integration tests covering coordinate validation, noise calibration, window batching, Kalman filtering, and parallel-road disambiguation:
+```bash
+pytest tests/ -v
+```

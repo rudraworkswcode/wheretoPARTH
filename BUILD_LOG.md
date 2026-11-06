@@ -174,95 +174,26 @@ All 11 corrective sections specified in STRUCTURE/Updates.md were systematically
 - Build Verification:
   * Executed `npm run build`: Production build succeeded in 2.12s with 0 errors.
 
-
-================================================================================
-WHERE TO PARTH — TRANSITIONS & CONTINUOUS JOURNEY AUDIT LOG
-Date: 2026-11-06
-Author: Antigravity AI Assistant
-Problem Statement: Lane-Level Vehicle Navigation Using NavIC Satellite Signals
-================================================================================
-
-[TRANSITION ARCHITECTURE IMPLEMENTATION]
-Systematically integrated the continuous cinematic transition sequence defined in STRUCTURE/Updates.md:
-
-1. Application Flow & State Ownership:
-   - Configured exact sequence in frontend/src/App.jsx:
-     WelcomePage -> ParticleGlobeTransition -> BriefPage -> RouteSelectionPage -> TrafficTransition -> NavigationDashboard
-   - App.jsx retains state ownership for active route, selected start/destination locations, and transition triggers.
-
-2. Transition A: Particle Diffusion & 3D Globe Splitting (frontend/src/components/ParticleGlobeTransition.jsx):
-   - Created dedicated Canvas-driven particle simulation component.
-   - Sampled exact welcome composition color palette (Red #FF0000, Neon Orange #FF5F1F, White #FFFFFF, and dark accents).
-   - Simulates physical breakup and high-energy loose organic diffusion.
-   - Particles organize dynamically into a rotating 3D spherical globe.
-   - Globe splits vertically into left and right hemispheres that drift outward toward viewport edges, seamlessly revealing BriefPage.
-   - Includes support for `prefers-reduced-motion` and complete cleanup of animation frames/resize listeners.
-
-3. Diagonal F1 Cars Correction (frontend/src/components/WelcomePage.jsx & frontend/src/index.css):
-   - Corrected crossing trajectories: left-to-right car starts outside left edge and exits beyond right edge; right-to-left car starts outside right edge and exits beyond left edge.
-   - Right-to-left car is flipped (`scaleX(-1)`) to face forward in its direction of travel.
-   - Both cars travel full diagonal spans across the entire viewport.
-   - Guarded progression against duplicate triggers (timer vs button click).
-
-4. Transition B: Parallel Opposite F1 Traffic (frontend/src/components/TrafficTransition.jsx & frontend/src/index.css):
-   - Created dedicated TrafficTransition component triggered upon route submission.
-   - Top group enters from top of screen and travels downward in parallel lanes.
-   - Bottom group enters from bottom of screen and travels upward in parallel lanes.
-   - Small F1 cars travel with subtle timing offsets without visual collisions.
-   - Seamlessly unmounts and opens NavigationDashboard with route selection preserved.
-
-[BUILD & VERIFICATION]
-- `npm run build --prefix frontend`: Built successfully in 8.26s with zero errors or warnings.
-- Output assets: index-wG2BXIWk.css (5.60 kB), index-Cn5DoEud.js (354.92 kB).
-================================================================================
-
-
-================================================================================
-WHERE TO PARTH — REFINEMENTS (TRAFFIC CARS, CORNER CROSSINGS, COMPACT HUD)
-Date: 2026-11-06
-Author: Antigravity AI Assistant
-================================================================================
-
-[THREE SPECIFIED REFINEMENTS IMPLEMENTED]
-1. Traffic Transition Car Visuals (frontend/src/components/TrafficTransition.jsx):
-   - Replaced simplified block/bullet markers with realistic top-down F1 racing cars: detailed front wings with white endplates, exposed wide tires with suspension wishbones, sculpted sidepods with team liveries, yellow driver helmet inside halo cockpit, central airbox fin, and rear aerodynamic wing with red rain lights.
-   - Preserved opposite parallel lane flows (downward group in Red/Orange, upward group in Orange/Red).
-
-2. Diagonal Extreme Corner Crossing (frontend/src/index.css):
-   - Corrected trajectories so cars span the full screen corner-to-corner across the extreme edges of the viewport:
-     * Left-origin car: starts bottom-left corner (-60vw, 45vh) and crosses diagonally through the viewport to the top-right corner (60vw, -45vh).
-     * Right-origin car: starts top-right corner (60vw, -45vh) and crosses diagonally through the viewport to the bottom-left corner (-60vw, 45vh).
-   - Both cars visually face their respective forward travel directions.
-
-3. Compact Single-Line Cockpit HUD & Upfront Extreme-Right Controls:
-   - frontend/src/components/TelemetryHUD.jsx:
-     * Reconfigured layout into a slim 4-column single-line grid (`gridTemplateColumns: 'repeat(4, minmax(0, 1fr))'`).
-     * Reduced card padding and typography sizes so Speedometer, Bearing, Accuracy, and Journey Progress all fit comfortably in one horizontal line above the map.
-   - frontend/src/components/NavigationDashboard.jsx & SimulationControls.jsx:
-     * Moved the "START NAVIGATION" / "STOP / PAUSE" button to the extreme right of the top header bar, immediately visible upfront without any scrolling down.
-     * When active, the user can toggle between "STOP / PAUSE" and "RESUME", or click "RESET" to cleanly stop and reset navigation.
-
-[BUILD & VERIFICATION]
-- `npm run build --prefix frontend`: Production build succeeded in 6.34s with 0 errors.
-================================================================================
-
-
-================================================================================
-WHERE TO PARTH — DIAGONAL CROSSING TRAJECTORIES UPDATE
-Date: 2026-11-06
-Author: Antigravity AI Assistant
-================================================================================
-
-[UPDATED CORNER-TO-CORNER DIAGONAL CAR TRAJECTORIES]
-Updated keyframe animations in frontend/src/index.css:
-1. Extreme Bottom-Left Car (@keyframes carLeftToRight):
-   - Starts: extreme bottom-left corner (`translate(-65vw, 45vh)`) angled upward-right (`rotate(-32deg)`).
-   - Trajectory: sweeps diagonally across the screen to exit past the extreme top-right corner (`translate(65vw, -45vh)`).
-2. Extreme Bottom-Right Car (@keyframes carRightToLeft):
-   - Starts: extreme bottom-right corner (`translate(65vw, 45vh)`) angled upward-left (`rotate(32deg)`).
-   - Trajectory: sweeps diagonally across the screen to exit past the extreme top-left corner (`translate(-65vw, -45vh)`).
-3. Both cars face forward along their respective upward diagonal headings.
-
-[BUILD & VERIFICATION]
-- `npm run build --prefix frontend`: Production build succeeded in 6.53s with 0 errors.
+[PHASE 8: UNIFIED OSM/OSRM NAVIGATION PIPELINE & KALMAN FALLBACK]
+- Backend (FastAPI - main.py):
+  * Replaced static GeoJSON route reading with DynamicRouteRequest accepting start_lon, start_lat, end_lon, end_lat with validation (bounding box, min 10m displacement).
+  * Implemented fetch_base_route() asynchronous query to local OSRM /route service (overview=full, geometries=geojson, steps=true) returning reference driving route geometry, distance, duration, and step maneuvers.
+  * Implemented calibrated generate_navic_noise(): interprets 1e-8 as variance in degrees squared, computes standard deviation (0.0001° ~ 11.1m latitude, ~10.8m longitude in Bengaluru), converts to ~15.5m horizontal accuracy radius, injects 2% intermediate dropouts preserving endpoints, and calculates observed headings.
+  * Implemented fetch_osrm_correction() with batch windowing (<= 40 coordinates with 5-point overlap) submitting timestamps, radiuses, and bearings to local OSRM /match.
+  * Implemented apply_kalman_smoothing() using a 4D constant-velocity Kalman filter ([x, y, vx, vy]) in a local metric Cartesian projection, falling back gracefully when OSRM matching confidence < 0.65 or service fails.
+  * Unified simulation endpoint: POST /api/simulate returning SimulationResponse with reference route, raw observations, snapped route, Kalman fallback coordinates, and advance alert maneuvers.
+  * Added GET /health checking local OSRM responsiveness.
+- Infrastructure & Docker:
+  * Pinned OSRM Docker image ghcr.io/project-osrm/osrm-backend:v5.27.1 in docker-compose.yml, scripts/prepare_osrm.sh, and scripts/prepare_osrm.ps1.
+  * Created Dockerfile for FastAPI backend and frontend/Dockerfile for Vite static frontend.
+  * Configurable OSRM_BASE_URL (http://osrm:5000 in Docker Compose, http://127.0.0.1:5000 for host development).
+  * Updated .gitignore to exclude osrm-data/, data/, *.osm.pbf, and *.osrm*.
+- Frontend Integration:
+  * RouteSelectionPage.jsx: Preset coordinates (Kengeri, Kanakapura, Somapura), custom coordinate inputs, and direct integration with POST /api/simulate. Retained "PROCEED TO NAVIGATION" button.
+  * LeafletMap.jsx: Distinct visual layers for Reference Route (cyan), Noisy GPS Signal (orange dashed/circles), Snapped Road Match (deep blue #0047AB), and Kalman Fallback Estimate (amber dashed #D97706). Retained zoom level preservation.
+  * NavigationDashboard.jsx: Uses active points from matched road or Kalman fallback without claiming Kalman filter is road-snapped. Speedometer strictly capped at 120 km/h. "Pause Navigation" toggles cleanly to "Resume Navigation".
+  * Retired deprecated static files: frontend/src/data/routesData.js and frontend/src/data/rawRoutes.json.
+- Verification & Testing:
+  * Full unit test suite (tests/): 12/12 passed (math/noise variance, Kalman fallback labeling, parallel road snapping, full API pipeline).
+  * Frontend production build: Vite build succeeded in 2.65s (0 errors).
 ================================================================================
