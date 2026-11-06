@@ -219,3 +219,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 ﻿__pycache__/
+
+# OpenStreetMap & OSRM Local Data Artifacts
+osrm-data/
+data/
+*.osm.pbf
+*.osrm*
+

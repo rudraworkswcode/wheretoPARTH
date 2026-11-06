@@ -173,3 +173,27 @@ All 11 corrective sections specified in STRUCTURE/Updates.md were systematically
   * Modified LeafletMap.jsx: Updated the bottom-left legend label from "Simulated NavIC Noise" to "Noisy GPS Signal".
 - Build Verification:
   * Executed `npm run build`: Production build succeeded in 2.12s with 0 errors.
+
+[PHASE 8: UNIFIED OSM/OSRM NAVIGATION PIPELINE & KALMAN FALLBACK]
+- Backend (FastAPI - main.py):
+  * Replaced static GeoJSON route reading with DynamicRouteRequest accepting start_lon, start_lat, end_lon, end_lat with validation (bounding box, min 10m displacement).
+  * Implemented fetch_base_route() asynchronous query to local OSRM /route service (overview=full, geometries=geojson, steps=true) returning reference driving route geometry, distance, duration, and step maneuvers.
+  * Implemented calibrated generate_navic_noise(): interprets 1e-8 as variance in degrees squared, computes standard deviation (0.0001° ~ 11.1m latitude, ~10.8m longitude in Bengaluru), converts to ~15.5m horizontal accuracy radius, injects 2% intermediate dropouts preserving endpoints, and calculates observed headings.
+  * Implemented fetch_osrm_correction() with batch windowing (<= 40 coordinates with 5-point overlap) submitting timestamps, radiuses, and bearings to local OSRM /match.
+  * Implemented apply_kalman_smoothing() using a 4D constant-velocity Kalman filter ([x, y, vx, vy]) in a local metric Cartesian projection, falling back gracefully when OSRM matching confidence < 0.65 or service fails.
+  * Unified simulation endpoint: POST /api/simulate returning SimulationResponse with reference route, raw observations, snapped route, Kalman fallback coordinates, and advance alert maneuvers.
+  * Added GET /health checking local OSRM responsiveness.
+- Infrastructure & Docker:
+  * Pinned OSRM Docker image ghcr.io/project-osrm/osrm-backend:v5.27.1 in docker-compose.yml, scripts/prepare_osrm.sh, and scripts/prepare_osrm.ps1.
+  * Created Dockerfile for FastAPI backend and frontend/Dockerfile for Vite static frontend.
+  * Configurable OSRM_BASE_URL (http://osrm:5000 in Docker Compose, http://127.0.0.1:5000 for host development).
+  * Updated .gitignore to exclude osrm-data/, data/, *.osm.pbf, and *.osrm*.
+- Frontend Integration:
+  * RouteSelectionPage.jsx: Preset coordinates (Kengeri, Kanakapura, Somapura), custom coordinate inputs, and direct integration with POST /api/simulate. Retained "PROCEED TO NAVIGATION" button.
+  * LeafletMap.jsx: Distinct visual layers for Reference Route (cyan), Noisy GPS Signal (orange dashed/circles), Snapped Road Match (deep blue #0047AB), and Kalman Fallback Estimate (amber dashed #D97706). Retained zoom level preservation.
+  * NavigationDashboard.jsx: Uses active points from matched road or Kalman fallback without claiming Kalman filter is road-snapped. Speedometer strictly capped at 120 km/h. "Pause Navigation" toggles cleanly to "Resume Navigation".
+  * Retired deprecated static files: frontend/src/data/routesData.js and frontend/src/data/rawRoutes.json.
+- Verification & Testing:
+  * Full unit test suite (tests/): 12/12 passed (math/noise variance, Kalman fallback labeling, parallel road snapping, full API pipeline).
+  * Frontend production build: Vite build succeeded in 2.65s (0 errors).
+================================================================================

@@ -1,9 +1,8 @@
 /**
- * Geographic, Navigation, and NavIC Utilities
- * Latitude-aware meters-based coordinate projection and progressive corridor modeling.
+ * Geographic and Navigation Utilities
+ * Pure mathematical functions for spherical geodetic calculations.
  */
 
-// Convert degrees to radians and vice-versa
 export const toRad = (deg) => (deg * Math.PI) / 180;
 export const toDeg = (rad) => (rad * 180) / Math.PI;
 
@@ -21,7 +20,7 @@ export function haversineDistance(pt1, pt2) {
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
   return R * c;
 }
 
@@ -38,64 +37,6 @@ export function calculateBearing(pt1, pt2) {
     Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
   const b = toDeg(Math.atan2(y, x));
   return (b + 360) % 360;
-}
-
-/**
- * Box-Muller transform to generate normally distributed random numbers
- */
-function randomNormal(mean = 0, stdDev = 1) {
-  let u1 = 0, u2 = 0;
-  while (u1 === 0) u1 = Math.random();
-  while (u2 === 0) u2 = Math.random();
-  const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-  return mean + z0 * stdDev;
-}
-
-/**
- * Meters to degrees latitude conversion
- */
-export function metersToLatDeg(meters) {
-  return meters / 111139.0;
-}
-
-/**
- * Meters to degrees longitude conversion (latitude-aware)
- */
-export function metersToLonDeg(meters, lat) {
-  const rad = toRad(lat);
-  return meters / (111139.0 * Math.cos(rad));
-}
-
-/**
- * Generates a single noisy coordinate in physical meters corridor
- * matching Python backend units (std in meters: ~6.0m corridor)
- */
-export function generateNoisyPoint(pt, index, config = {}) {
-  const {
-    noise_std_meters = 6.0,
-    drift_bias_lat_meters = 0.05,
-    drift_bias_lon_meters = -0.05
-  } = config;
-
-  const [lon, lat] = pt;
-  const noiseLatM = randomNormal(0, noise_std_meters);
-  const noiseLonM = randomNormal(0, noise_std_meters);
-  const cumDriftLatM = index * drift_bias_lat_meters;
-  const cumDriftLonM = index * drift_bias_lon_meters;
-
-  const dLat = metersToLatDeg(noiseLatM + cumDriftLatM);
-  const dLon = metersToLonDeg(noiseLonM + cumDriftLonM, lat);
-
-  const noisyLon = Number((lon + dLon).toFixed(6));
-  const noisyLat = Number((lat + dLat).toFixed(6));
-
-  return {
-    originalIndex: index,
-    originalCoord: pt,
-    coord: [noisyLon, noisyLat],
-    errorMeters: haversineDistance(pt, [noisyLon, noisyLat]),
-    isDropout: false
-  };
 }
 
 /**
@@ -120,94 +61,4 @@ export function estimateDeadReckoning(lastCoord, bearingDeg, speedKmh, elapsedSe
   );
 
   return [Number(toDeg(newLon).toFixed(6)), Number(toDeg(newLat).toFixed(6))];
-}
-
-/**
- * Scans route coordinates and detects road-level manoeuvres (turns > 25 deg).
- * Note: Uses verified road-level manoeuvre wording; avoids unverified lane claims.
- */
-export function detectManeuvers(coordinates) {
-  if (!coordinates || coordinates.length < 3) return [];
-
-  const cumDists = [0];
-  for (let i = 1; i < coordinates.length; i++) {
-    const d = haversineDistance(coordinates[i - 1], coordinates[i]);
-    cumDists.push(cumDists[i - 1] + d);
-  }
-
-  const totalDist = cumDists[cumDists.length - 1];
-  const maneuvers = [];
-
-  for (let i = 2; i < coordinates.length - 2; i += 3) {
-    const pPrev = coordinates[i - 2];
-    const pCurr = coordinates[i];
-    const pNext = coordinates[Math.min(i + 2, coordinates.length - 1)];
-
-    const b1 = calculateBearing(pPrev, pCurr);
-    const b2 = calculateBearing(pCurr, pNext);
-
-    let angleDiff = b2 - b1;
-    while (angleDiff > 180) angleDiff -= 360;
-    while (angleDiff < -180) angleDiff += 360;
-
-    const absAngle = Math.abs(angleDiff);
-    if (absAngle >= 25) {
-      let turnType = 'slight_right';
-      let instruction = 'Keep slight right';
-
-      if (angleDiff > 60) {
-        turnType = 'sharp_right';
-        instruction = 'Turn right at junction';
-      } else if (angleDiff > 25) {
-        turnType = 'right';
-        instruction = 'Turn right';
-      } else if (angleDiff < -60) {
-        turnType = 'sharp_left';
-        instruction = 'Turn left at junction';
-      } else if (angleDiff < -25) {
-        turnType = 'left';
-        instruction = 'Turn left';
-      }
-
-      maneuvers.push({
-        index: i,
-        coord: pCurr,
-        distanceFromStart: cumDists[i],
-        turnType,
-        angle: Math.round(absAngle),
-        instruction
-      });
-    }
-  }
-
-  maneuvers.push({
-    index: coordinates.length - 1,
-    coord: coordinates[coordinates.length - 1],
-    distanceFromStart: totalDist,
-    turnType: 'destination',
-    angle: 0,
-    instruction: 'Destination Reached'
-  });
-
-  return maneuvers;
-}
-
-/**
- * Calculates total route metrics
- */
-export function calculateRouteMetrics(coordinates) {
-  if (!coordinates || coordinates.length < 2) {
-    return { totalDistanceKm: 0, totalDurationMin: 0 };
-  }
-  let totalMeters = 0;
-  for (let i = 1; i < coordinates.length; i++) {
-    totalMeters += haversineDistance(coordinates[i - 1], coordinates[i]);
-  }
-  const totalKm = totalMeters / 1000;
-  const minutes = Math.round((totalKm / 45) * 60);
-  return {
-    totalMeters: Math.round(totalMeters),
-    totalDistanceKm: Number(totalKm.toFixed(2)),
-    totalDurationMin: Math.max(2, minutes)
-  };
 }
