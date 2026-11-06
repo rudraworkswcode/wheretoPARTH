@@ -19,8 +19,11 @@ frontend/
 │   │
 │   └── components/
 │       ├── Header.jsx                   # Sticky navbar with functional home link ("WHERE TO PARTH")
-│       ├── WelcomePage.jsx              # Opening homepage brief with crossing F1 cars & smooth transition
-│       ├── RouteSelectionPage.jsx       # Dynamic departure & destination selector with validated presets
+│       ├── WavingPortfolioLanding.tsx   # Master motorsport landing with slot-reel typography, central circuit & NavIC tracker
+│       ├── ParticleGlobeTransition.jsx  # Phase 1 transition: particle breakup -> rotating 3D globe -> vertical reveal
+│       ├── BriefPage.jsx                # Mission briefing: The PARTH philosophy, problem statement & hackathon credentials
+│       ├── RouteSelectionPage.jsx       # Dynamic departure & destination selector with validated presets & draggable pins
+│       ├── TrafficTransition.jsx        # Phase 2 transition: parallel opposite F1 traffic flow before cockpit
 │       ├── NavigationDashboard.jsx      # Navigation cockpit orchestrator consuming unified backend payload
 │       ├── LeafletMap.jsx               # Leaflet map rendering reference, raw, deep blue matched, and Kalman traces
 │       ├── AdvanceAlertBanner.jsx       # ~1 km advance turn notification based on OSRM route steps
@@ -28,6 +31,18 @@ frontend/
 │       ├── TelemetryHUD.jsx             # Speedometer (hard-capped at 120 km/h), measured accuracy, progress
 │       └── SimulationControls.jsx       # Navigation transport with "Pause Navigation" / "Resume Navigation"
 ```
+
+---
+
+## Complete Multi-Stage Application Flow
+
+The unified application follows the verified sequential experience:
+1. **WavingPortfolioLanding** (`welcome`): Motorsport landing featuring Barlow Condensed ExtraBold typography, central circuit, and NavIC L5 tracker. Clicking anywhere or letting the tracker complete transitions forward.
+2. **ParticleGlobeTransition** (`transition_globe`): Canvas particle dissolution forming a rotating 3D globe silhouette, splitting vertically.
+3. **BriefPage** (`brief`): Hackathon problem briefing with problem ID `DL-SJBIT-HK26-GOVP009` and philosophy.
+4. **RouteSelectionPage** (`routes`): Interactive map with draggable start/destination pins and validated Bangalore presets (`Kengeri`, `Kanakapura`, `Somapura`), launching `POST /api/simulate`.
+5. **TrafficTransition** (`transition_traffic`): Parallel opposite F1 vehicle flow transition.
+6. **NavigationDashboard** (`cockpit`): Complete telemetry and map matching cockpit with OSRM and Kalman fallback.
 
 ---
 

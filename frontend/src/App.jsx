@@ -1,9 +1,16 @@
 import React, { useState } from 'react';
 import Header from './components/Header';
-import WelcomePage from './components/WelcomePage';
+import WavingPortfolioLanding from './components/WavingPortfolioLanding';
+import ParticleGlobeTransition from './components/ParticleGlobeTransition';
+import BriefPage from './components/BriefPage';
 import RouteSelectionPage from './components/RouteSelectionPage';
+import TrafficTransition from './components/TrafficTransition';
 import NavigationDashboard from './components/NavigationDashboard';
 
+/**
+ * Required exact application flow:
+ * Welcome / New Landing Design (WavingPortfolioLanding) -> Particle Globe Transition -> Brief -> Route Selection -> Traffic Transition -> Navigation Cockpit
+ */
 export default function App() {
   const [currentPage, setCurrentPage] = useState('welcome');
   const [simulationData, setSimulationData] = useState(null);
@@ -54,7 +61,7 @@ export default function App() {
         const data = await response.json();
         setSimulationData(data);
         setIsLoading(false);
-        setCurrentPage('cockpit');
+        setCurrentPage('transition_traffic');
         return;
       } catch (err) {
         continue;
@@ -70,19 +77,40 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--parth-black)' }}>
-      {/* Global Header with functional logo routing back to initial homepage brief */}
+      {/* Global Header with functional logo routing back to initial homepage */}
       <Header onNavigateHome={() => setCurrentPage('welcome')} />
 
       {/* Main Consolidated Navigation Flow with Smooth State Transition Animation */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        {/* 1. Welcome / New Landing Design from master */}
         {currentPage === 'welcome' && (
           <div key="welcome" className="view-transition-wrapper">
-            <WelcomePage
-              onProceed={() => setCurrentPage('routes')}
+            <WavingPortfolioLanding
+              onProceed={() => setCurrentPage('transition_globe')}
             />
           </div>
         )}
 
+        {/* 2. Transition A: Particle Dissolution -> Globe Formation -> Separation */}
+        {currentPage === 'transition_globe' && (
+          <div key="transition_globe" className="view-transition-wrapper">
+            <ParticleGlobeTransition
+              onComplete={() => setCurrentPage('brief')}
+            />
+          </div>
+        )}
+
+        {/* 3. Brief Page */}
+        {currentPage === 'brief' && (
+          <div key="brief" className="view-transition-wrapper">
+            <BriefPage
+              onProceed={() => setCurrentPage('routes')}
+              onBack={() => setCurrentPage('welcome')}
+            />
+          </div>
+        )}
+
+        {/* 4. Route Selection Page */}
         {currentPage === 'routes' && (
           <div key="routes" className="view-transition-wrapper">
             <RouteSelectionPage
@@ -94,6 +122,16 @@ export default function App() {
           </div>
         )}
 
+        {/* 5. Transition B: Parallel Opposite F1 Traffic Flow */}
+        {currentPage === 'transition_traffic' && (
+          <div key="transition_traffic" className="view-transition-wrapper">
+            <TrafficTransition
+              onComplete={() => setCurrentPage('cockpit')}
+            />
+          </div>
+        )}
+
+        {/* 6. Navigation Cockpit / Map */}
         {currentPage === 'cockpit' && (
           <div key="cockpit" className="view-transition-wrapper">
             <NavigationDashboard
