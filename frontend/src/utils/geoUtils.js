@@ -1,6 +1,6 @@
 /**
- * Geographic and Navigation Utilities
- * Pure mathematical functions for spherical geodetic calculations.
+ * Geographic, Navigation, and NavIC Utilities
+ * Pure mathematical functions for spherical geodetic calculations & lane-level navigation.
  */
 
 export const toRad = (deg) => (deg * Math.PI) / 180;
@@ -61,4 +61,133 @@ export function estimateDeadReckoning(lastCoord, bearingDeg, speedKmh, elapsedSe
   );
 
   return [Number(toDeg(newLon).toFixed(6)), Number(toDeg(newLat).toFixed(6))];
+}
+
+/**
+ * Scans route coordinates and detects road & lane manoeuvres (turns > 25 deg).
+ * Calculates cumulative distances and provides lane guidance recommendations.
+ */
+export function detectManeuvers(coordinates) {
+  if (!coordinates || coordinates.length < 3) return [];
+
+  // Compute cumulative distance along the path
+  const cumDists = [0];
+  for (let i = 1; i < coordinates.length; i++) {
+    const d = haversineDistance(coordinates[i - 1], coordinates[i]);
+    cumDists.push(cumDists[i - 1] + d);
+  }
+
+  const totalDist = cumDists[cumDists.length - 1];
+  const maneuvers = [];
+
+  for (let i = 2; i < coordinates.length - 2; i += 3) {
+    const pPrev = coordinates[i - 2];
+    const pCurr = coordinates[i];
+    const pNext = coordinates[Math.min(i + 2, coordinates.length - 1)];
+
+    const b1 = calculateBearing(pPrev, pCurr);
+    const b2 = calculateBearing(pCurr, pNext);
+
+    let angleDiff = b2 - b1;
+    while (angleDiff > 180) angleDiff -= 360;
+    while (angleDiff < -180) angleDiff += 360;
+
+    const absAngle = Math.abs(angleDiff);
+    if (absAngle >= 25) {
+      let turnType = 'slight_right';
+      let instruction = 'Keep slight right';
+      let laneGuidance = 'Keep Center-Right Lane';
+      let recommendedLane = 'Center-Right';
+      let laneIndex = 1; // 0: Left, 1: Center, 2: Right
+
+      if (angleDiff > 60) {
+        turnType = 'sharp_right';
+        instruction = 'Turn right at junction';
+        laneGuidance = 'Shift to Right Turn Lane';
+        recommendedLane = 'Right Turn Lane';
+        laneIndex = 2;
+      } else if (angleDiff > 25) {
+        turnType = 'right';
+        instruction = 'Turn right';
+        laneGuidance = 'Stay in Right Lane';
+        recommendedLane = 'Right Lane';
+        laneIndex = 2;
+      } else if (angleDiff < -60) {
+        turnType = 'sharp_left';
+        instruction = 'Turn left at junction';
+        laneGuidance = 'Shift to Left Turn Lane';
+        recommendedLane = 'Left Turn Lane';
+        laneIndex = 0;
+      } else if (angleDiff < -25) {
+        turnType = 'left';
+        instruction = 'Turn left';
+        laneGuidance = 'Stay in Left Lane';
+        recommendedLane = 'Left Lane';
+        laneIndex = 0;
+      }
+
+      const lanes = [
+        { id: 0, label: 'L1 (LEFT)', active: laneIndex === 0, arrow: 'left' },
+        { id: 1, label: 'L2 (THRU)', active: laneIndex === 1, arrow: 'straight' },
+        { id: 2, label: 'L3 (RIGHT)', active: laneIndex === 2, arrow: 'right' }
+      ];
+
+      maneuvers.push({
+        index: i,
+        coord: pCurr,
+        location: pCurr,
+        distanceFromStart: cumDists[i],
+        turnType,
+        angle: Math.round(absAngle),
+        instruction,
+        laneGuidance,
+        recommendedLane,
+        laneIndex,
+        totalLanes: 3,
+        lanes
+      });
+    }
+  }
+
+  // Add final destination arrival
+  maneuvers.push({
+    index: coordinates.length - 1,
+    coord: coordinates[coordinates.length - 1],
+    location: coordinates[coordinates.length - 1],
+    distanceFromStart: totalDist,
+    turnType: 'destination',
+    angle: 0,
+    instruction: 'Destination Reached',
+    laneGuidance: 'Exit road to destination bay',
+    recommendedLane: 'Exit Bay',
+    laneIndex: 2,
+    totalLanes: 3,
+    lanes: [
+      { id: 0, label: 'L1', active: false, arrow: 'straight' },
+      { id: 1, label: 'L2', active: false, arrow: 'straight' },
+      { id: 2, label: 'EXIT BAY', active: true, arrow: 'exit' }
+    ]
+  });
+
+  return maneuvers;
+}
+
+/**
+ * Calculates total route metrics
+ */
+export function calculateRouteMetrics(coordinates) {
+  if (!coordinates || coordinates.length < 2) {
+    return { totalDistanceKm: 0, totalDurationMin: 0 };
+  }
+  let totalMeters = 0;
+  for (let i = 1; i < coordinates.length; i++) {
+    totalMeters += haversineDistance(coordinates[i - 1], coordinates[i]);
+  }
+  const totalKm = totalMeters / 1000;
+  const minutes = Math.round((totalKm / 45) * 60);
+  return {
+    totalMeters: Math.round(totalMeters),
+    totalDistanceKm: Number(totalKm.toFixed(2)),
+    totalDurationMin: Math.max(2, minutes)
+  };
 }
