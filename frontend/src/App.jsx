@@ -1,8 +1,6 @@
 import React, { useState, Component } from 'react';
-import Header from './components/Header';
 import WavingPortfolioLanding from './components/ui/waving-portfolio-landing';
 import ParticleGlobeTransition from './components/ParticleGlobeTransition';
-import BriefPage from './components/BriefPage';
 import RouteSelectionPage from './components/RouteSelectionPage';
 import TrafficTransition from './components/TrafficTransition';
 import NavigationDashboard from './components/NavigationDashboard';
@@ -75,16 +73,12 @@ class ErrorBoundary extends Component {
 }
 
 /**
- * WHERE TO PARTH — Unified Application Architecture
- * Combines all UI components of master:
- *  1. WavingPortfolioLanding: Animated waving typography, F1 car storm, and NavIC GPS tracker
- *  2. ParticleGlobeTransition: 3D rotating spherical particle dissolution & horizontal separation
- *  3. BriefPage: Mission briefing, Hackathon problem ID, and technical pillars
- *  4. TrafficTransition: Parallel opposite F1 traffic flow animation
- * With all functionality of no-osrm:
- *  5. RouteSelectionPage: Interactive Leaflet map with Start and Destination pin-dropping anywhere
- *  6. NavigationDashboard: Live navigation cockpit with top-level Pause/Resume/Restart controls,
- *     real-time telemetry HUD, Kalman filter fallback, and maneuver alerts
+ * WHERE TO PARTH — Streamlined Application Flow
+ * 1. WavingPortfolioLanding: Animated waving typography, F1 car storm, and NavIC GPS tracker
+ * 2. ParticleGlobeTransition: 3D rotating spherical particle dissolution opening directly into Route Selection
+ * 3. RouteSelectionPage: Interactive Leaflet map with Start and Destination pin-dropping
+ * 4. TrafficTransition: Parallel opposite F1 traffic flow animation into cockpit
+ * 5. NavigationDashboard: Live navigation cockpit with telemetry HUD, 3-lane guidance, and Kalman fallback
  */
 export default function App() {
   const [currentPage, setCurrentPage] = useState('welcome');
@@ -153,44 +147,27 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--parth-black)' }}>
-      {/* Global Header with Tab Navigation */}
-      <Header
-        currentPage={currentPage}
-        onNavigate={(page) => setCurrentPage(page)}
-        onNavigateHome={() => setCurrentPage('welcome')}
-      />
-
-      {/* Main Navigation Flow */}
+      {/* Main Navigation Flow — Clean & Immersive without top header bar */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         <ErrorBoundary onReset={() => setCurrentPage('routes')}>
-          {/* 1. Cool Waving Portfolio & F1 Car Storm Intro Animation */}
+          {/* 1. Cool Waving Portfolio & F1 Car Storm Intro Animation (Full Viewport) */}
           {currentPage === 'welcome' && (
-            <div key="welcome" className="view-transition-wrapper" style={{ flex: 1 }}>
+            <div key="welcome" className="view-transition-wrapper" style={{ flex: 1, height: '100vh' }}>
               <WavingPortfolioLanding
-                height="calc(100vh - 65px)"
+                height="100vh"
                 onProceed={() => setCurrentPage('transition_globe')}
               />
             </div>
           )}
 
-          {/* 2. Particle Globe Formation & Outward Split Transition */}
+          {/* 2. Particle Globe Formation — Directly opens into Route Selection Page */}
           {currentPage === 'transition_globe' && (
             <ParticleGlobeTransition
-              onComplete={() => setCurrentPage('brief')}
+              onComplete={() => setCurrentPage('routes')}
             />
           )}
 
-          {/* 3. Phase 02: Mission Briefing & PARTH Philosophy */}
-          {currentPage === 'brief' && (
-            <div key="brief" className="view-transition-wrapper">
-              <BriefPage
-                onProceed={() => setCurrentPage('routes')}
-                onBack={() => setCurrentPage('welcome')}
-              />
-            </div>
-          )}
-
-          {/* 4. Interactive Map Route & Pin Selection */}
+          {/* 3. Interactive Map Route & Pin Selection */}
           {currentPage === 'routes' && (
             <div key="routes" className="view-transition-wrapper">
               <RouteSelectionPage
@@ -202,14 +179,14 @@ export default function App() {
             </div>
           )}
 
-          {/* 5. Parallel Opposite F1 Traffic Flow Transition */}
+          {/* 4. Parallel Opposite F1 Traffic Flow Transition */}
           {currentPage === 'transition_traffic' && (
             <TrafficTransition
               onComplete={() => setCurrentPage('cockpit')}
             />
           )}
 
-          {/* 6. Live Navigation Dashboard Cockpit */}
+          {/* 5. Live Navigation Dashboard Cockpit */}
           {currentPage === 'cockpit' && (
             <div key="cockpit" className="view-transition-wrapper">
               <NavigationDashboard
